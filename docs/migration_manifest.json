@@ -1,0 +1,76 @@
+{
+  "created_utc": "2026-10-28T06:44:30Z",
+  "source_root": "/mnt/sda/taochangyong/Projects/Model/YOLO-tcy_v4",
+  "dest_root": "/mnt/sda/taochangyong/Projects/Model/YOLO-tcy_v5",
+  "checkpoint_original": "/mnt/sda/taochangyong/Projects/Model/YOLO-tcy_v4/runs/rlsfa_gtga_bhlr_gmls_v2/yolo26m_UAVCB_GMLSv2_DMLS-Correction_Fine_Scale_BHLRv2-P3_ADD_rgb1920_sem640_tir640_seed0_scratch_bs32_r6_bhlrnew_newbest/weights/best.pt",
+  "best_rel": "runs/rlsfa_gtga_bhlr_gmls_v2/yolo26m_UAVCB_GMLSv2_DMLS-Correction_Fine_Scale_BHLRv2-P3_ADD_rgb1920_sem640_tir640_seed0_scratch_bs32_r6_bhlrnew_newbest/weights/best.pt",
+  "best_sha256": "44361ad83fdcf742f49894ebadcbd775bac944e5c25af2c7817d3d72294533cb",
+  "source_config_variant": "rlsfa_gtga_centered_bhlr_v2",
+  "source_config_model": "yolo26m",
+  "source_config_is_from_checkpoint": true,
+  "total_core_files": 38,
+  "core_files": [
+    "configs/models/yolo26/yolo26m.yaml",
+    "configs/weights/yolo26/yolo26m.pt",
+    "datasets/dual_resolution_rgbt_dataset.py",
+    "datasets/rgbt_dataset.py",
+    "datasets/rsdt_dataset.py",
+    "engine/__init__.py",
+    "engine/evaluator.py",
+    "engine/runtime.py",
+    "engine/trainer.py",
+    "eval_alignment_iou_displacement_GMLS_v2.py",
+    "models/gtga_bhlr_factory.py",
+    "models/gtga_bhlr_factory_base20261021.py",
+    "models/gtga_bhlr_factory_before_agdh_drg_v2.py",
+    "models/modules/adaptive_rgbt_fusion.py",
+    "models/modules/agdh_v1.py",
+    "models/modules/alignment/__init__.py",
+    "models/modules/alignment/alignment_reliability_gate.py",
+    "models/modules/alignment/base.py",
+    "models/modules/alignment/builder.py",
+    "models/modules/alignment/gtga.py",
+    "models/modules/alignment/identity.py",
+    "models/modules/alignment/rlsfa_gtga_centered.py",
+    "models/modules/alignment/rlsfa_scale.py",
+    "models/modules/bdp_neck.py",
+    "models/modules/bdp_neck_v2.py",
+    "models/modules/bhlr_v2.py",
+    "models/modules/rodg.py",
+    "models/rgbt_model.py",
+    "models/rgbt_rlsfa_gtga_bhlr_model.py",
+    "models/rgbt_rlsfa_gtga_centered_bhlr_agdh_model.py",
+    "models/rgbt_rlsfa_gtga_centered_bhlr_bdp_model.py",
+    "models/rgbt_rlsfa_gtga_centered_bhlr_bdp_neck_v2_model.py",
+    "models/rgbt_rlsfa_gtga_centered_bhlr_model.py",
+    "models/rgbt_rlsfa_gtga_centered_bhlr_rodg_model.py",
+    "train_rlsfa_gtga_bhlr_v2.py",
+    "utils/config.py",
+    "val_rlsfa_gtga_bhlr_v2.py",
+    "visualize_rlsfa_coarsefine_gtga_bhlr_add.py"
+  ],
+  "pretrained_weight_files": [
+    "configs/weights/yolo26/yolo26m.pt"
+  ],
+  "missing_optional_entrypoints": [],
+  "source_files_with_old_absolute_paths": [],
+  "datasets": [
+    {
+      "modality": "rgb",
+      "source": "/mnt/sda/taochangyong/Projects/Model/YOLO-tcy_v4/configs/datasets/UAV-CB-RGB.yaml",
+      "dest": "configs/datasets/UAV-CB-RGB.yaml"
+    },
+    {
+      "modality": "tir",
+      "source": "/mnt/sda/taochangyong/Projects/Model/YOLO-tcy_v4/configs/datasets/UAV-CB-TIR.yaml",
+      "dest": "configs/datasets/UAV-CB-TIR.yaml"
+    }
+  ],
+  "run_size_bytes": 1738352747,
+  "script_paths": {
+    "validation_script": "scripts/validate_best.sh",
+    "training_script": "scripts/train_baseline.sh",
+    "best_rel": "runs/rlsfa_gtga_bhlr_gmls_v2/yolo26m_UAVCB_GMLSv2_DMLS-Correction_Fine_Scale_BHLRv2-P3_ADD_rgb1920_sem640_tir640_seed0_scratch_bs32_r6_bhlrnew_newbest/weights/best.pt"
+  },
+  "checkpoint_metadata_note": "Original best.pt config is intentionally UNMODIFIED and may contain v4 dataset paths; pass v5 YAML explicitly or use scripts/validate_best.sh"
+}
