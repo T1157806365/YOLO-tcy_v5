@@ -1146,8 +1146,378 @@ def parser():
         help="Use CUDA autocast. Default FP32 is recommended for geometry diagnostics.",
     )
     p.add_argument("--jpg-quality", type=int, default=95)
+    p.add_argument("--max-images", type=int, default=0, help="Online-KD smoke test image limit")
+    p.add_argument("--max-plots", type=int, default=30, help="Online-KD maximum visualizations")
+    p.add_argument("--no-plots", action="store_true", help="Disable Online-KD HBB visualizations")
+    p.add_argument("--overwrite", action="store_true", help="Allow replacing existing alignment reports")
     return p
+# ONLINE_KD_INPLACE_V1
+
+def _evaluate_online_rgbt_kd_v1(args):
+    """Strict OnlineRGBT-KD checkpoint, geometry IoU in RGB semantic coordinates.
+
+    All helper functions live in this scope, so the original GMLS-v2
+    evaluator and all its geometry helpers are left untouched.
+    """
+    import csv
+    import json
+    import math
+    import warnings
+    from collections import Counter
+    from pathlib import Path
+    from typing import Mapping
+    import cv2
+    import numpy as np
+    import torch
+    from tqdm import tqdm
+    from datasets.dual_resolution_rgbt_dataset import (
+        build_dual_resolution_dataloader,
+        build_dual_resolution_dataset,
+    )
+    from engine.runtime import autocast_context, preprocess_batch, select_device
+    from online_rgbt_kd_v1.factory import build_model_from_config
+
+    def xywhn_to_xyxy(box, w, h):
+        x, y, bw, bh = [float(v) for v in box]
+        return np.array([(x-bw/2)*w, (y-bh/2)*h, (x+bw/2)*w, (y+bh/2)*h], dtype=np.float64)
 
 
-if __name__ == "__main__":
-    evaluate(parser().parse_args())
+    def iou_xyxy(a, b):
+        x1=max(a[0],b[0]); y1=max(a[1],b[1]); x2=min(a[2],b[2]); y2=min(a[3],b[3])
+        inter=max(0,x2-x1)*max(0,y2-y1)
+        aa=max(0,a[2]-a[0])*max(0,a[3]-a[1]); bb=max(0,b[2]-b[0])*max(0,b[3]-b[1]); union=aa+bb-inter
+        return 0. if union<=0 else float(inter/union)
+
+
+    def iou_norm(a,b,w,h):
+        return iou_xyxy(xywhn_to_xyxy(a,w,h),xywhn_to_xyxy(b,w,h))
+
+
+    def tir_to_rgb(box,s,t):
+        """Affine inverse for normalized GT boxes: q = S*p+t."""
+        box=np.asarray(box,dtype=np.float64).reshape(4)
+        s=np.asarray(s,dtype=np.float64).reshape(2)
+        t=np.asarray(t,dtype=np.float64).reshape(2)
+        if not np.all(np.isfinite(s)) or np.any(s<=0) or not np.all(np.isfinite(t)):
+            raise ValueError(f'Invalid predicted affine geometry scale={s}, translation={t}')
+        result=np.empty(4,dtype=np.float64)
+        result[:2]=(box[:2]-t)/s
+        result[2:]=box[2:]/s
+        return result
+
+
+    def vec2(value,batch_index,label):
+        if value is None:
+            return None
+        if torch.is_tensor(value):
+            x=value.detach().float().cpu().numpy()
+        else:
+            x=np.asarray(value)
+        if x.ndim==1 and x.size==2:
+            # one sample or batch-independent vector
+            if batch_index!=0:
+                raise ValueError(f'{label}: expected batched [B,2], got {x.shape}')
+            y=x
+        else:
+            if x.ndim==0 or x.shape[0]<=batch_index:
+                raise ValueError(f'{label}: invalid batch index {batch_index} for shape {x.shape}')
+            y=np.asarray(x[batch_index]).reshape(-1)
+        if y.size!=2:
+            raise ValueError(f'{label}: expected 2 values per sample, got {y.size}; shape={x.shape}')
+        y=y.astype(np.float64)
+        if not np.all(np.isfinite(y)):
+            raise FloatingPointError(f'{label} has nonfinite values: {y}')
+        return y
+
+
+    def get_dbg(info,model):
+        scale=int(getattr(model,'gtga_reference_scale',getattr(getattr(model,'alignment',None),'reference_scale',3)))
+        dbg=info.get('scale_debug',{}) or {}
+        data=dbg.get(scale,dbg.get(str(scale),None)) if isinstance(dbg,Mapping) else None
+        if data is None:
+            data=info.get('debug',None)
+        if not isinstance(data,Mapping):
+            # Top-level info contains predicted affine geometry even without debug
+            data=info
+        return data,scale
+
+
+    def field(dbg,info,name):
+        x=dbg.get(name,None)
+        return info.get(name,None) if x is None else x
+
+
+    def get_hw(dbg):
+        x=dbg.get('rgb_targetness_raw',None)
+        if torch.is_tensor(x):
+            return int(x.shape[-2]),int(x.shape[-1])
+        if x is not None:
+            arr=np.asarray(x)
+            return int(arr.shape[-2]),int(arr.shape[-1])
+        raise KeyError('Missing rgb_targetness_raw: cannot convert feature offsets to normalized geometry')
+
+
+    def stage_transform(offset,feat_h,feat_w):
+        return np.ones(2,dtype=np.float64),offset/np.array([max(feat_w-1,1),max(feat_h-1,1)],dtype=np.float64)
+
+
+    def finite_float(x):
+        return float(x) if x is not None and np.isfinite(x) else None
+
+
+    def robust_metrics(vals):
+        a=np.asarray(vals,dtype=np.float64)
+        a=a[np.isfinite(a)]
+        if not len(a): return {'count':0,'mean':None,'median':None,'min':None,'max':None}
+        return {'count':int(len(a)),'mean':float(a.mean()),'median':float(np.median(a)),
+                'min':float(a.min()),'max':float(a.max())}
+
+
+    def load_online_checkpoint(weights,device):
+        checkpoint_path=Path(weights).expanduser().resolve()
+        if not checkpoint_path.is_file():
+            raise FileNotFoundError(checkpoint_path)
+        checkpoint=torch.load(checkpoint_path,map_location='cpu',weights_only=False)
+        if not isinstance(checkpoint,dict):
+            raise TypeError(f'Expected dict checkpoint, got {type(checkpoint)}')
+        cfg=checkpoint.get('config')
+        state=checkpoint.get('model_state_dict')
+        if not isinstance(cfg,dict) or not isinstance(state,dict):
+            raise KeyError('Expected checkpoint["config"] and checkpoint["model_state_dict"]. '
+                           f'Actual keys: {list(checkpoint.keys())[:30]}')
+        variant=(cfg.get('model') or {}).get('variant')
+        if variant!='online_rgbt_kd_v1':
+            raise ValueError(f'Wrong checkpoint model.variant={variant!r}, expected online_rgbt_kd_v1')
+        model=build_model_from_config(cfg,pretrained=False,verbose=False)
+        # Do not permit partial loading: prevents evaluating a wrong architecture.
+        state_clean={k.removeprefix('module.'):v for k,v in state.items()}
+        model.load_state_dict(state_clean,strict=True)
+        model.to(device).eval()
+        return model,checkpoint,cfg
+
+
+    def save_overlay(rgb_tensor, rgb_box, tir_box, dmls_box, final_box, path, metrics):
+        rgb=rgb_tensor.detach().float().cpu().clamp(0,1)
+        if rgb.ndim!=3:
+            raise ValueError(f'Unexpected RGB image shape {tuple(rgb.shape)}')
+        arr=(rgb[:3].permute(1,2,0).numpy()*255).astype(np.uint8)
+        img=cv2.cvtColor(arr,cv2.COLOR_RGB2BGR)
+        h,w=img.shape[:2]
+        legend=[('RGB GT',rgb_box,(0,210,0)),('raw TIR GT',tir_box,(0,165,255)),
+                ('DMLS',dmls_box,(255,0,255)),('aligned TIR GT',final_box,(0,0,255))]
+        for label,box,color in legend:
+            if box is None:continue
+            xyxy=xywhn_to_xyxy(box,w,h)
+            x1,y1,x2,y2=[int(np.clip(round(v),0,(w-1 if i%2==0 else h-1))) for i,v in enumerate(xyxy)]
+            cv2.rectangle(img,(x1,y1),(x2,y2),color,2,cv2.LINE_AA)
+            cv2.putText(img,label,(x1,max(16,y1-4)),cv2.FONT_HERSHEY_SIMPLEX,.46,color,1,cv2.LINE_AA)
+        cv2.putText(img,f'IoU raw={metrics["iou_before"]:.3f} final={metrics["iou_after"]:.3f}',
+                    (8,22),cv2.FONT_HERSHEY_SIMPLEX,.55,(255,255,255),2,cv2.LINE_AA)
+        cv2.imwrite(str(path),img)
+
+
+    def evaluate(args):
+        device=select_device(str(args.device))
+        model,ckpt,cfg=load_online_checkpoint(args.weights,device)
+        data_cfg=cfg.get('data') or {}
+        rgb_yaml=args.rgb or data_cfg.get('rgb')
+        tir_yaml=args.tir or data_cfg.get('tir')
+        if not rgb_yaml or not tir_yaml:
+            raise ValueError('RGB/TIR YAML missing in checkpoint; use --rgb and --tir')
+        rgb_high=int(args.rgb_imgsz or data_cfg.get('rgb_imgsz',1920))
+        rgb_sem=int(args.rgb_semantic_imgsz or data_cfg.get('rgb_semantic_imgsz',640))
+        tir_size=int(args.tir_imgsz or data_cfg.get('tir_imgsz',640))
+        pair_mode=args.pair_mode or data_cfg.get('pair_mode','relative')
+        print(f'[ONLINE-KD] variant={cfg["model"]["variant"]} strict_checkpoint=True device={device}',flush=True)
+        print(f'[DATA] {args.split} rgb_high={rgb_high} rgb_sem={rgb_sem} tir={tir_size} batch={args.batch}',flush=True)
+
+        dataset=build_dual_resolution_dataset(rgb_yaml=rgb_yaml,tir_yaml=tir_yaml,split=args.split,
+            rgb_high_imgsz=rgb_high,rgb_semantic_imgsz=rgb_sem,tir_imgsz=tir_size,
+            pair_mode=pair_mode,augment=False,tir_channels=3,strict_pair=True)
+        loader=build_dual_resolution_dataloader(dataset,batch_size=int(args.batch),
+            workers=int(args.workers),shuffle=False,pin_memory=(device.type=='cuda'))
+        save_dir=Path(args.save_dir).expanduser().resolve() if args.save_dir else (
+            Path(args.weights).resolve().parent.parent/f'online_kd_alignment_{args.split}')
+        if any((save_dir/x).exists() for x in ('per_box.csv', 'summary.json')) and not args.overwrite:
+            raise FileExistsError(f'Alignment report already exists in {save_dir}. Use --overwrite or a new --save-dir')
+        save_dir.mkdir(parents=True,exist_ok=True)
+        vis_dir=save_dir/'boxed_images'
+        if args.plots:vis_dir.mkdir(exist_ok=True)
+
+        rows=[]; images=0; ignored=Counter(); illustrated=0; warned_multi=False; printed_debug=False
+        pbar=tqdm(loader,desc=f'Online-KD alignment {args.split}')
+        with torch.inference_mode():
+            for batch in pbar:
+                batch=preprocess_batch(batch,device)
+                if hasattr(model,'build_alignment_valid_masks_from_batch'):
+                    rgb_mask,tir_mask=model.build_alignment_valid_masks_from_batch(batch)
+                else:
+                    rgb_mask=tir_mask=None
+                with autocast_context(device,enabled=bool(args.amp)):
+                    outputs=model.predict(batch['rgb_img'],batch['tir_img'],
+                        rgb_semantic=batch['rgb_semantic_img'],
+                        rgb_valid_mask=rgb_mask,tir_valid_mask=tir_mask,
+                        return_features=True,return_alignment_debug=True)
+                if not isinstance(outputs,dict) or 'alignment_info' not in outputs:
+                    raise TypeError('Online model.predict must return a dict including alignment_info with return_features=True')
+                info=outputs['alignment_info']; dbg,ref_scale=get_dbg(info,model)
+                if not printed_debug:
+                    print('[ALIGNMENT FIELDS]', sorted(k for k in dbg if not str(k).startswith('_')),flush=True)
+                    printed_debug=True
+                # Verify model-produced geometry, no fallback to GT.
+                s_all=field(dbg,info,'sampling_scale')
+                t_all=field(dbg,info,'sampling_translation')
+                if s_all is None or t_all is None:
+                    raise KeyError('Model did not return sampling_scale/sampling_translation')
+                feat_h,feat_w=get_hw(dbg)
+                global_all=field(dbg,info,'coarse_offset_global_soft')
+                dmls_all=field(dbg,info,'coarse_offset_dmls')
+                initial_all=field(dbg,info,'coarse_offset_initial')
+                refined_all=field(dbg,info,'refined_offset')
+                fine_all=field(dbg,info,'fine_offset')
+                bsz=int(batch['rgb_semantic_img'].shape[0]); H=int(batch['rgb_semantic_img'].shape[-2]);W=int(batch['rgb_semantic_img'].shape[-1])
+                # Optional names: stored path field can be a list or absent.
+                paths=batch.get('rgb_paths',batch.get('rgb_path',batch.get('paths',None)))
+                for bi in range(bsz):
+                    images+=1
+                    rm=(batch['rgb_batch_idx']==bi)
+                    tm=(batch['tir_batch_idx']==bi)
+                    rgb_boxes=batch['rgb_semantic_bboxes'][rm].detach().float().cpu().numpy().reshape(-1,4)
+                    tir_boxes=batch['tir_bboxes'][tm].detach().float().cpu().numpy().reshape(-1,4)
+                    if len(rgb_boxes)==0 or len(tir_boxes)==0:
+                        ignored['missing_modality_gt']+=1;continue
+                    if len(rgb_boxes)!=1 or len(tir_boxes)!=1:
+                        ignored['multi_object_skipped']+=1
+                        if not warned_multi:
+                            warnings.warn('Found multi-object pairs; skipped to avoid unreliable nearest-center GT matching. '
+                                          'See skipped_images in summary.json.')
+                            warned_multi=True
+                        continue
+                    rgb_box=rgb_boxes[0].astype(np.float64)
+                    tir_box=tir_boxes[0].astype(np.float64)
+                    s=vec2(s_all,bi,'sampling_scale');t=vec2(t_all,bi,'sampling_translation')
+                    if (s<=0).any():raise ValueError(f'non-positive scale: {s}')
+                    raw_iou=iou_norm(rgb_box,tir_box,W,H)
+                    final_box=tir_to_rgb(tir_box,s,t)
+                    final_iou=iou_norm(rgb_box,final_box,W,H)
+                    global_offset=vec2(global_all,bi,'global_soft') if global_all is not None else None
+                    dmls_offset=vec2(dmls_all,bi,'dmls') if dmls_all is not None else None
+                    initial_offset=vec2(initial_all,bi,'coarse_initial') if initial_all is not None else None
+                    refined_offset=vec2(refined_all,bi,'refined_offset') if refined_all is not None else None
+                    fine_offset=vec2(fine_all,bi,'fine_offset') if fine_all is not None else None
+                    def stage(offset):
+                        if offset is None:return None,None
+                        ss,tt=stage_transform(offset,feat_h,feat_w)
+                        box=tir_to_rgb(tir_box,ss,tt)
+                        return box,iou_norm(rgb_box,box,W,H)
+                    global_box,global_iou=stage(global_offset)
+                    dmls_box,dmls_iou=stage(dmls_offset)
+                    coarse_box,coarse_iou=stage(initial_offset)
+                    fine_box,fine_iou=stage(refined_offset)
+                    # Source-minus-reference center offset in normalized coords.
+                    gt_offset=(tir_box[:2]-rgb_box[:2])*np.array([feat_w-1,feat_h-1])
+                    def err(offset):return None if offset is None else float(np.linalg.norm(offset-gt_offset))
+                    raw_center_error=float(np.linalg.norm((tir_box[:2]-rgb_box[:2])*[W,H]))
+                    final_delta_px=(final_box[:2]-rgb_box[:2])*np.asarray([W,H])
+                    final_center_error=float(np.linalg.norm(final_delta_px))
+                    def norm_center_error(b):return None if b is None else float(np.linalg.norm((b[:2]-rgb_box[:2])*[W,H]))
+                    filename=f'image_{images:06d}'
+                    if isinstance(paths,(list,tuple)) and bi<len(paths): filename=str(paths[bi])
+                    elif isinstance(paths,str): filename=paths
+                    row={
+                        'sample_index':images,'image_path':filename,'reference_scale':ref_scale,
+                        'rgb_gt_cx':rgb_box[0],'rgb_gt_cy':rgb_box[1],
+                        'tir_gt_cx':tir_box[0],'tir_gt_cy':tir_box[1],
+                        'iou_before':raw_iou,'iou_global_soft':global_iou,'iou_dmls':dmls_iou,
+                        'iou_coarse_initial':coarse_iou,'iou_coarse_plus_fine':fine_iou,
+                        'iou_after':final_iou,'iou_gain':final_iou-raw_iou,
+                        'gt_offset_x_feature':gt_offset[0],'gt_offset_y_feature':gt_offset[1],
+                        'global_offset_error_feature':err(global_offset),
+                        'dmls_offset_error_feature':err(dmls_offset),
+                        'initial_offset_error_feature':err(initial_offset),
+                        'refined_offset_error_feature':err(refined_offset),
+                        'global_center_error_px':norm_center_error(global_box),
+                        'dmls_center_error_px':norm_center_error(dmls_box),
+                        'raw_center_error_px':raw_center_error,
+                        'final_center_dx_px':final_delta_px[0],
+                        'final_center_dy_px':final_delta_px[1],
+                        'final_center_error_px':final_center_error,
+                        'sampling_scale_x':s[0],'sampling_scale_y':s[1],
+                        'sampling_translation_x':t[0],'sampling_translation_y':t[1],
+                        'fine_offset_x_feature':None if fine_offset is None else fine_offset[0],
+                        'fine_offset_y_feature':None if fine_offset is None else fine_offset[1],
+                        'rgb_width':W,'rgb_height':H,'ref_feat_width':feat_w,'ref_feat_height':feat_h,
+                    }
+                    rows.append(row)
+                    if args.plots and illustrated<int(args.max_plots):
+                        dest=vis_dir/f'{images:06d}.jpg'
+                        save_overlay(batch['rgb_semantic_img'][bi],rgb_box,tir_box,dmls_box,final_box,dest,row)
+                        illustrated+=1
+                if args.max_images and images>=int(args.max_images):break
+                if rows:pbar.set_postfix_str(f'IoU raw={np.mean([q["iou_before"] for q in rows]):.3f} final={np.mean([q["iou_after"] for q in rows]):.3f}')
+
+        if not rows:
+            raise RuntimeError('No one-to-one GT image pairs measured. Check split, RGB/TIR GT and skip counters: '+str(dict(ignored)))
+        fields=list(rows[0].keys())
+        with (save_dir/'per_box.csv').open('w',newline='',encoding='utf-8-sig') as f:
+            writer=csv.DictWriter(f,fieldnames=fields);writer.writeheader()
+            for r in rows:writer.writerow({k:'' if v is None else v for k,v in r.items()})
+
+        def metric(key):return robust_metrics([r[key] for r in rows if r[key] is not None])
+        summary={
+            'weights':str(Path(args.weights).expanduser().resolve()),'variant':'online_rgbt_kd_v1',
+            'split':args.split,'total_images_seen':images,'evaluated_gt_pairs':len(rows),
+            'skipped_images':dict(ignored),'pair_policy':'only one RGB GT and one TIR GT',
+            'coordinate':'RGB semantic normalized image; inverse sampling q=S*p+t',
+            'gt_used_for_model_alignment':False,'rgb_semantic_imgsz':rgb_sem,
+            'mean_values':{k:metric(k) for k in [
+                'iou_before','iou_global_soft','iou_dmls','iou_coarse_initial',
+                'iou_coarse_plus_fine','iou_after','iou_gain','raw_center_error_px',
+                'final_center_error_px',
+                'global_offset_error_feature','dmls_offset_error_feature',
+                'refined_offset_error_feature','sampling_scale_x','sampling_scale_y']},
+            'improved_pairs':sum(r['iou_gain']>1e-8 for r in rows),
+            'worsened_pairs':sum(r['iou_gain']< -1e-8 for r in rows),
+            'unchanged_pairs':sum(abs(r['iou_gain'])<=1e-8 for r in rows),
+            'zero_iou_before':sum(r['iou_before']<=1e-12 for r in rows),
+            'zero_iou_after':sum(r['iou_after']<=1e-12 for r in rows),
+        }
+        (save_dir/'summary.json').write_text(json.dumps(summary,ensure_ascii=False,indent=2,allow_nan=False),encoding='utf-8')
+        print('\n'+'='*72)
+        print('ONLINE-KD ALIGNMENT METRICS (RGB semantic coordinate frame)')
+        print('Images:',images,'GT pairs:',len(rows),'Skipped:',dict(ignored))
+        for key in ['iou_before','iou_global_soft','iou_dmls','iou_coarse_initial','iou_coarse_plus_fine','iou_after','iou_gain','raw_center_error_px',
+                'final_center_error_px','refined_offset_error_feature']:
+            st=summary['mean_values'][key]
+            print(f'{key:34s} mean={str(round(st["mean"],6) if st["mean"] is not None else "N/A"):>10s}  n={st["count"]}')
+        print('Improved / worsened / unchanged:',summary['improved_pairs'],summary['worsened_pairs'],summary['unchanged_pairs'])
+        print('Zero IoU before / after:',summary['zero_iou_before'],summary['zero_iou_after'])
+        print('CSV:',save_dir/'per_box.csv');print('Summary:',save_dir/'summary.json')
+        if args.plots:print('Visualizations:',vis_dir)
+        print('='*72)
+
+
+    # Keep the existing command-line interface, with compatible defaults.
+    args.plots = not bool(getattr(args, 'no_plots', False))
+    args.overwrite = bool(getattr(args, 'overwrite', False))
+    args.max_images = int(getattr(args, 'max_images', 0))
+    args.max_plots = int(getattr(args, 'max_plots', 30))
+    if str(getattr(args, 'fusion', 'auto')) != 'auto':
+        raise ValueError('OnlineRGBT-KD strict loading does not support --fusion override; use --fusion auto')
+    return evaluate(args)
+
+def _dispatch_original_or_online_alignment_evaluator():
+    args = parser().parse_args()
+    # Use checkpoint metadata to dispatch. Never rename the model.variant in
+    # the checkpoint or load KD weights into an incompatible baseline class.
+    checkpoint = torch.load(args.weights, map_location='cpu', weights_only=False)
+    variant = (checkpoint.get('config', {}).get('model', {}) or {}).get('variant') if isinstance(checkpoint, dict) else None
+    del checkpoint
+    if variant == 'online_rgbt_kd_v1':
+        print('[ALIGN EVAL] OnlineRGBT-KD v1: DMLS/Fine/Scale mode; GMLS-v2 fields not required.', flush=True)
+        return _evaluate_online_rgbt_kd_v1(args)
+    print(f'[ALIGN EVAL] Legacy evaluator for model.variant={variant!r}', flush=True)
+    return evaluate(args)
+
+if __name__ == '__main__':
+    _dispatch_original_or_online_alignment_evaluator()
