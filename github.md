@@ -9,10 +9,10 @@ git switch -c backup-20261028-teacher
 git add . 
 git commit -m "Backup YOLO-tcy_v5 20261028-teacher" 
 # 上传新分支到 GitHub 
-git push -u origin backup-20261028--teacher
+git push -u origin backup-20261028-teacher
 
 
 
 # 重新推送
 cd /mnt/sda/taochangyong/Projects/Model/YOLO-tcy_v5
-git -c http.version=HTTP/1.1 push -u origin backup-20261028-rgb_v1
+git -c http.version=HTTP/1.1 push -u origin backup-20261028-teacher
