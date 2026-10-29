@@ -1,0 +1,56 @@
+{
+  "version": "1.0",
+  "records": [
+    {
+      "path": "configs/experiments/rgb_preserve_v1/uavcb_rgb_preserve_1920.yaml",
+      "installed_sha256": "7b8d5133ebc4081766a2e6e90eee9018c6a2b9df8670f6a3787ec890f57f3036",
+      "backup": null
+    },
+    {
+      "path": "configs/experiments/rgb_preserve_v1/uavcb_rgb_preserve_640.yaml",
+      "installed_sha256": "e0485188038d96ffa4aceee83d1e1022fd71e6e357d54258c72f8144c55dd10d",
+      "backup": null
+    },
+    {
+      "path": "rgb_preserve_v1/__init__.py",
+      "installed_sha256": "9ab3843c4561765ad5f7c1298aae4afbd577d6d430490fc171e7a1a0aa5200ca",
+      "backup": null
+    },
+    {
+      "path": "rgb_preserve_v1/check_identity.py",
+      "installed_sha256": "9fc6f54a46678ae2642ee5178469be103b9f50c0d89deb260a40a0a6b9f959ea",
+      "backup": null
+    },
+    {
+      "path": "rgb_preserve_v1/check_train_graph.py",
+      "installed_sha256": "a44cabd436386b99ea62faf80c37a188baea6ff29a36d52eb910357a15a402d0",
+      "backup": null
+    },
+    {
+      "path": "rgb_preserve_v1/manage_install.py",
+      "installed_sha256": "c22725d65bc571a2e14423fb22805ce2dae789ef4b4b861913c59d0a200ce611",
+      "backup": null
+    },
+    {
+      "path": "rgb_preserve_v1/model.py",
+      "installed_sha256": "ecb5eb361bcce8f9352633951844764bb5cf4e837d1f4c106075670b93b921b7",
+      "backup": null
+    },
+    {
+      "path": "rgb_preserve_v1/restore.sh",
+      "installed_sha256": "c207bd7229cad5ff22f5721d5f84acd4563e0a34d8a373a764d0fcfb1cc5956f",
+      "backup": null
+    },
+    {
+      "path": "rgb_preserve_v1/train.py",
+      "installed_sha256": "9afacf972ccc4ebe04a225a2869727fdf9dfe9b2536012906761d3885a69a80d",
+      "backup": null
+    },
+    {
+      "path": "rgb_preserve_v1/val.py",
+      "installed_sha256": "58a4fde6804ecdd39dffff1b25414aaf74e77509bfda7da990acdff876c2600f",
+      "backup": null
+    }
+  ],
+  "backup_root": ".rgb_preserve_v1_recovery/20261029_181838"
+}
