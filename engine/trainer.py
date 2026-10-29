@@ -564,6 +564,7 @@ def run_stage(
             f"AP50:95={metrics['map5095']:.4f} | "
             f"stage_best={stage_best:.4f} | "
             f"global_best={global_best_map:.4f}\n"
+            f"no_improve={early_stop_counter}/{patience}\n"
         )
 
         if int(patience) > 0 and early_stop_counter >= int(patience):

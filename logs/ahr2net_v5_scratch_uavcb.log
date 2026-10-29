@@ -1,0 +1,9 @@
+nohup: 忽略输入
+Traceback (most recent call last):
+  File "/mnt/sda/taochangyong/Projects/Model/YOLO-tcy_v5/train_ahr2net_v5_scratch.py", line 443, in <module>
+    if __name__=='__main__':main()
+  File "/mnt/sda/taochangyong/Projects/Model/YOLO-tcy_v5/train_ahr2net_v5_scratch.py", line 424, in main
+    cfg=load_config(args.cfg)
+  File "/mnt/sda/taochangyong/Projects/Model/YOLO-tcy_v5/train_ahr2net_v5_scratch.py", line 72, in load_config
+    raise ValueError('This edition uses ONE GPU, not comma-separated multiple GPU IDs')
+ValueError: This edition uses ONE GPU, not comma-separated multiple GPU IDs

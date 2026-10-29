@@ -1,0 +1,285 @@
+nohup: 忽略输入
+[NOTICE] pretrained:true initializes each stream from single-modal YOLO weights; it is NOT strictly random initialization.
+[DDP LAUNCH] physical CUDA IDs=[0, 6] world_size=2
+[DDP LAUNCH] /mnt/sda/taochangyong/.conda/envs/tcy/bin/python -m torch.distributed.run --standalone --nproc_per_node 2 /mnt/sda/taochangyong/Projects/Model/YOLO-tcy_v5/train_ahr2net_v5_scratch.py --cfg configs/experiments/ahr2net/uavcb_ahr2net_yolo26m_scratch_ddp2_1920_640.yaml
+[NOTICE] pretrained:true initializes each stream from single-modal YOLO weights; it is NOT strictly random initialization.
+[NOTICE] pretrained:true initializes each stream from single-modal YOLO weights; it is NOT strictly random initialization.
+
+============================================================
+RGB-T Paired Dataset
+============================================================
+Split        : train
+RGB YAML     : /mnt/sda/taochangyong/Projects/Model/YOLO-tcy_v5/configs/datasets/UAV-CB-RGB.yaml
+TIR YAML     : /mnt/sda/taochangyong/Projects/Model/YOLO-tcy_v5/configs/datasets/UAV-CB-TIR.yaml
+RGB images   : 2032
+TIR images   : 2032
+Pairs        : 2032
+Missing TIR  : 0
+Missing RGB  : 0
+Pair mode    : relative
+RGB imgsz    : (1920, 1920)
+TIR imgsz    : (640, 640)
+TIR channels : 3
+Classes      : 1
+============================================================
+
+RSD-T RGB high: (1920, 1920)
+RSD-T RGB semantic: (640, 640)
+
+============================================================
+Build RGB-T Dual-Backbone YOLO
+============================================================
+Model       : yolo26m
+Model YAML  : /mnt/sda/taochangyong/Projects/Model/YOLO-tcy_v5/configs/models/yolo26/yolo26m.yaml
+Pretrained  : /mnt/sda/taochangyong/Projects/Model/YOLO-tcy_v5/configs/weights/yolo26/yolo26m.pt
+Classes     : 1
+Fusion      : add
+Align       : bilinear
+
+============================================================
+RGB-T Paired Dataset
+============================================================
+Split        : train
+RGB YAML     : /mnt/sda/taochangyong/Projects/Model/YOLO-tcy_v5/configs/datasets/UAV-CB-RGB.yaml
+TIR YAML     : /mnt/sda/taochangyong/Projects/Model/YOLO-tcy_v5/configs/datasets/UAV-CB-TIR.yaml
+RGB images   : 2032
+TIR images   : 2032
+Pairs        : 2032
+Missing TIR  : 0
+Missing RGB  : 0
+Pair mode    : relative
+RGB imgsz    : (1920, 1920)
+TIR imgsz    : (640, 640)
+TIR channels : 3
+Classes      : 1
+============================================================
+
+RSD-T RGB high: (1920, 1920)
+RSD-T RGB semantic: (640, 640)
+
+============================================================
+RGB-T Paired Dataset
+============================================================
+Split        : val
+RGB YAML     : /mnt/sda/taochangyong/Projects/Model/YOLO-tcy_v5/configs/datasets/UAV-CB-RGB.yaml
+TIR YAML     : /mnt/sda/taochangyong/Projects/Model/YOLO-tcy_v5/configs/datasets/UAV-CB-TIR.yaml
+RGB images   : 679
+TIR images   : 679
+Pairs        : 679
+Missing TIR  : 0
+Missing RGB  : 0
+Pair mode    : relative
+RGB imgsz    : (1920, 1920)
+TIR imgsz    : (640, 640)
+TIR channels : 3
+Classes      : 1
+============================================================
+
+RSD-T RGB high: (1920, 1920)
+RSD-T RGB semantic: (640, 640)
+
+============================================================
+Build RGB-T Dual-Backbone YOLO
+============================================================
+Model       : yolo26m
+Model YAML  : /mnt/sda/taochangyong/Projects/Model/YOLO-tcy_v5/configs/models/yolo26/yolo26m.yaml
+Pretrained  : /mnt/sda/taochangyong/Projects/Model/YOLO-tcy_v5/configs/weights/yolo26/yolo26m.pt
+Classes     : 1
+Fusion      : add
+Align       : bilinear
+Overriding model.yaml nc=80 with nc=1
+Overriding model.yaml nc=80 with nc=1
+Transferred 756/768 items from pretrained weights
+Transferred 756/768 items from pretrained weights
+Backbone len: 11
+Fusion indices: [4, 6, 10]
+  layer 4: RGB C=512, TIR C=512
+  layer 6: RGB C=512, TIR C=512
+  layer 10: RGB C=512, TIR C=512
+YOLO stride : [8.0, 16.0, 32.0]
+End2End     : True
+============================================================
+
+Backbone len: 11
+Fusion indices: [4, 6, 10]
+  layer 4: RGB C=512, TIR C=512
+  layer 6: RGB C=512, TIR C=512
+  layer 10: RGB C=512, TIR C=512
+YOLO stride : [8.0, 16.0, 32.0]
+End2End     : True
+============================================================
+
+
+========================================================================
+RLSFA coarse anchor + Local-GTGA centered scale + guided BHLR-v2
+========================================================================
+Model                 : yolo26m
+Fusion                : add
+Reference scale       : P3
+Translation           : targetness-weighted coarse correlation
+Scale pivot           : coarse UAV anchor (NOT image center)
+Scale                 : local sigma_T / sigma_R around UAV anchors
+Frequency refinement  : OFF
+Fine translation      : OFF
+Final warp            : ONE center-preserving unified warp
+Reliability gate      : OFF
+BHLR scales           : [3]
+BHLR guidance         : alignment
+Guidance formula      : 3ch [A_RGB, A_TIR_aligned, J] -> 1x1 residual fusion
+========================================================================
+
+
+========================================================================
+RLSFA coarse anchor + Local-GTGA centered scale + guided BHLR-v2
+========================================================================
+Model                 : yolo26m
+Fusion                : add
+Reference scale       : P3
+Translation           : targetness-weighted coarse correlation
+Scale pivot           : coarse UAV anchor (NOT image center)
+Scale                 : local sigma_T / sigma_R around UAV anchors
+Frequency refinement  : OFF
+Fine translation      : OFF
+Final warp            : ONE center-preserving unified warp
+Reliability gate      : OFF
+BHLR scales           : [3]
+BHLR guidance         : alignment
+Guidance formula      : 3ch [A_RGB, A_TIR_aligned, J] -> 1x1 residual fusion
+========================================================================
+
+[MODEL] total=34.499M trainable=34.495M GMLS=True BHLR=True
+[DATA] train=2032 val=679
+[DDP] world_size=2 device_per_rank=cuda:0 per_gpu_batch=32 accumulate=16 effective_global_batch=1024
+[OUT] runs/ahr2net_v5_scratch/yolo26m_UAVCB_AHR2Net_GMLS_BHLR_P3_rgb1920_sem640_tir640_seed0_scratch_ddp2_bs32
+[START] stage1 epochs=300 lr=0.01 per_gpu_batch=32 accumulate=16 world_size=2 pretrained=True
+Train 1/300:   0%|          | 0/32 [00:00<?, ?it/s]                                                   [rank0]: Traceback (most recent call last):
+[rank0]:   File "/mnt/sda/taochangyong/Projects/Model/YOLO-tcy_v5/train_ahr2net_v5_scratch.py", line 629, in <module>
+[rank0]:     if __name__=='__main__':main()
+[rank0]:   File "/mnt/sda/taochangyong/Projects/Model/YOLO-tcy_v5/train_ahr2net_v5_scratch.py", line 620, in main
+[rank0]:     if args.phase=='train':run_train(cfg,args,device)
+[rank0]:   File "/mnt/sda/taochangyong/Projects/Model/YOLO-tcy_v5/train_ahr2net_v5_scratch.py", line 440, in run_train
+[rank0]:     gb,best1=train_stage(model,loader_train,loader_val,cfg,device,output,stage='stage1',
+[rank0]:   File "/mnt/sda/taochangyong/Projects/Model/YOLO-tcy_v5/train_ahr2net_v5_scratch.py", line 360, in train_stage
+[rank0]:     loss,aux=train_epoch(model,train_loader,opt,scaler,device,cfg,epoch,epochs,max_batches)
+[rank0]:   File "/mnt/sda/taochangyong/Projects/Model/YOLO-tcy_v5/train_ahr2net_v5_scratch.py", line 291, in train_epoch
+[rank0]:     raw,items=model(batch)
+[rank0]:   File "/mnt/sda/taochangyong/.conda/envs/tcy/lib/python3.10/site-packages/torch/nn/modules/module.py", line 1739, in _wrapped_call_impl
+[rank0]:     return self._call_impl(*args, **kwargs)
+[rank0]:   File "/mnt/sda/taochangyong/.conda/envs/tcy/lib/python3.10/site-packages/torch/nn/modules/module.py", line 1750, in _call_impl
+[rank0]:     return forward_call(*args, **kwargs)
+[rank0]:   File "/mnt/sda/taochangyong/.conda/envs/tcy/lib/python3.10/site-packages/torch/nn/parallel/distributed.py", line 1643, in forward
+[rank0]:     else self._run_ddp_forward(*inputs, **kwargs)
+[rank0]:   File "/mnt/sda/taochangyong/.conda/envs/tcy/lib/python3.10/site-packages/torch/nn/parallel/distributed.py", line 1459, in _run_ddp_forward
+[rank0]:     return self.module(*inputs, **kwargs)  # type: ignore[index]
+[rank0]:   File "/mnt/sda/taochangyong/.conda/envs/tcy/lib/python3.10/site-packages/torch/nn/modules/module.py", line 1739, in _wrapped_call_impl
+[rank0]:     return self._call_impl(*args, **kwargs)
+[rank0]:   File "/mnt/sda/taochangyong/.conda/envs/tcy/lib/python3.10/site-packages/torch/nn/modules/module.py", line 1750, in _call_impl
+[rank0]:     return forward_call(*args, **kwargs)
+[rank0]:   File "/mnt/sda/taochangyong/Projects/Model/YOLO-tcy_v5/models/rgbt_rlsfa_gtga_centered_bhlr_model.py", line 701, in forward
+[rank0]:     return self.loss(rgb)
+[rank0]:   File "/mnt/sda/taochangyong/Projects/Model/YOLO-tcy_v5/models/ahr2net_scratch_model.py", line 162, in loss
+[rank0]:     base_raw, base_items = super().loss(batch, preds=preds)
+[rank0]:   File "/mnt/sda/taochangyong/Projects/Model/YOLO-tcy_v5/models/rgbt_rlsfa_gtga_centered_bhlr_model.py", line 976, in loss
+[rank0]:     outputs = self.predict(
+[rank0]:   File "/mnt/sda/taochangyong/Projects/Model/YOLO-tcy_v5/models/rgbt_rlsfa_gtga_centered_bhlr_model.py", line 678, in predict
+[rank0]:     features = self.forward_features(
+[rank0]:   File "/mnt/sda/taochangyong/Projects/Model/YOLO-tcy_v5/models/ahr2net_scratch_model.py", line 112, in forward_features
+[rank0]:     f = super().forward_features(
+[rank0]:   File "/mnt/sda/taochangyong/Projects/Model/YOLO-tcy_v5/models/rgbt_rlsfa_gtga_centered_bhlr_model.py", line 496, in forward_features
+[rank0]:     aligned_tir, alignment_info = self.alignment.align_pyramid(
+[rank0]:   File "/mnt/sda/taochangyong/Projects/Model/YOLO-tcy_v5/models/modules/alignment/rlsfa_gtga_centered.py", line 1576, in align_pyramid
+[rank0]:     aligned_ref, joint_ref, geometry, debug = self.unit(
+[rank0]:   File "/mnt/sda/taochangyong/.conda/envs/tcy/lib/python3.10/site-packages/torch/nn/modules/module.py", line 1739, in _wrapped_call_impl
+[rank0]:     return self._call_impl(*args, **kwargs)
+[rank0]:   File "/mnt/sda/taochangyong/.conda/envs/tcy/lib/python3.10/site-packages/torch/nn/modules/module.py", line 1750, in _call_impl
+[rank0]:     return forward_call(*args, **kwargs)
+[rank0]:   File "/mnt/sda/taochangyong/Projects/Model/YOLO-tcy_v5/models/modules/alignment/rlsfa_gtga_centered.py", line 1417, in forward
+[rank0]:     g = self.estimate_geometry(rgb_feat, tir_feat, rgb_valid_mask, tir_valid_mask)
+[rank0]:   File "/mnt/sda/taochangyong/Projects/Model/YOLO-tcy_v5/models/modules/alignment/rlsfa_gtga_centered.py", line 1088, in estimate_geometry
+[rank0]:     ) = correlation_translation(
+[rank0]:   File "/mnt/sda/taochangyong/Projects/Model/YOLO-tcy_v5/models/modules/alignment/rlsfa_gtga_centered.py", line 276, in correlation_translation
+[rank0]:     corr = (ref.unsqueeze(2) * shifted).sum(1)
+[rank0]: torch.OutOfMemoryError: CUDA out of memory. Tried to allocate 1.00 GiB. GPU 0 has a total capacity of 47.37 GiB of which 441.31 MiB is free. Including non-PyTorch memory, this process has 46.91 GiB memory in use. Of the allocated memory 46.01 GiB is allocated by PyTorch, and 307.25 MiB is reserved by PyTorch but unallocated. If reserved but unallocated memory is large try setting PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True to avoid fragmentation.  See documentation for Memory Management  (https://pytorch.org/docs/stable/notes/cuda.html#environment-variables)
+[rank1]: Traceback (most recent call last):
+[rank1]:   File "/mnt/sda/taochangyong/Projects/Model/YOLO-tcy_v5/train_ahr2net_v5_scratch.py", line 629, in <module>
+[rank1]:     if __name__=='__main__':main()
+[rank1]:   File "/mnt/sda/taochangyong/Projects/Model/YOLO-tcy_v5/train_ahr2net_v5_scratch.py", line 620, in main
+[rank1]:     if args.phase=='train':run_train(cfg,args,device)
+[rank1]:   File "/mnt/sda/taochangyong/Projects/Model/YOLO-tcy_v5/train_ahr2net_v5_scratch.py", line 440, in run_train
+[rank1]:     gb,best1=train_stage(model,loader_train,loader_val,cfg,device,output,stage='stage1',
+[rank1]:   File "/mnt/sda/taochangyong/Projects/Model/YOLO-tcy_v5/train_ahr2net_v5_scratch.py", line 360, in train_stage
+[rank1]:     loss,aux=train_epoch(model,train_loader,opt,scaler,device,cfg,epoch,epochs,max_batches)
+[rank1]:   File "/mnt/sda/taochangyong/Projects/Model/YOLO-tcy_v5/train_ahr2net_v5_scratch.py", line 291, in train_epoch
+[rank1]:     raw,items=model(batch)
+[rank1]:   File "/mnt/sda/taochangyong/.conda/envs/tcy/lib/python3.10/site-packages/torch/nn/modules/module.py", line 1739, in _wrapped_call_impl
+[rank1]:     return self._call_impl(*args, **kwargs)
+[rank1]:   File "/mnt/sda/taochangyong/.conda/envs/tcy/lib/python3.10/site-packages/torch/nn/modules/module.py", line 1750, in _call_impl
+[rank1]:     return forward_call(*args, **kwargs)
+[rank1]:   File "/mnt/sda/taochangyong/.conda/envs/tcy/lib/python3.10/site-packages/torch/nn/parallel/distributed.py", line 1643, in forward
+[rank1]:     else self._run_ddp_forward(*inputs, **kwargs)
+[rank1]:   File "/mnt/sda/taochangyong/.conda/envs/tcy/lib/python3.10/site-packages/torch/nn/parallel/distributed.py", line 1459, in _run_ddp_forward
+[rank1]:     return self.module(*inputs, **kwargs)  # type: ignore[index]
+[rank1]:   File "/mnt/sda/taochangyong/.conda/envs/tcy/lib/python3.10/site-packages/torch/nn/modules/module.py", line 1739, in _wrapped_call_impl
+[rank1]:     return self._call_impl(*args, **kwargs)
+[rank1]:   File "/mnt/sda/taochangyong/.conda/envs/tcy/lib/python3.10/site-packages/torch/nn/modules/module.py", line 1750, in _call_impl
+[rank1]:     return forward_call(*args, **kwargs)
+[rank1]:   File "/mnt/sda/taochangyong/Projects/Model/YOLO-tcy_v5/models/rgbt_rlsfa_gtga_centered_bhlr_model.py", line 701, in forward
+[rank1]:     return self.loss(rgb)
+[rank1]:   File "/mnt/sda/taochangyong/Projects/Model/YOLO-tcy_v5/models/ahr2net_scratch_model.py", line 162, in loss
+[rank1]:     base_raw, base_items = super().loss(batch, preds=preds)
+[rank1]:   File "/mnt/sda/taochangyong/Projects/Model/YOLO-tcy_v5/models/rgbt_rlsfa_gtga_centered_bhlr_model.py", line 976, in loss
+[rank1]:     outputs = self.predict(
+[rank1]:   File "/mnt/sda/taochangyong/Projects/Model/YOLO-tcy_v5/models/rgbt_rlsfa_gtga_centered_bhlr_model.py", line 678, in predict
+[rank1]:     features = self.forward_features(
+[rank1]:   File "/mnt/sda/taochangyong/Projects/Model/YOLO-tcy_v5/models/ahr2net_scratch_model.py", line 112, in forward_features
+[rank1]:     f = super().forward_features(
+[rank1]:   File "/mnt/sda/taochangyong/Projects/Model/YOLO-tcy_v5/models/rgbt_rlsfa_gtga_centered_bhlr_model.py", line 496, in forward_features
+[rank1]:     aligned_tir, alignment_info = self.alignment.align_pyramid(
+[rank1]:   File "/mnt/sda/taochangyong/Projects/Model/YOLO-tcy_v5/models/modules/alignment/rlsfa_gtga_centered.py", line 1576, in align_pyramid
+[rank1]:     aligned_ref, joint_ref, geometry, debug = self.unit(
+[rank1]:   File "/mnt/sda/taochangyong/.conda/envs/tcy/lib/python3.10/site-packages/torch/nn/modules/module.py", line 1739, in _wrapped_call_impl
+[rank1]:     return self._call_impl(*args, **kwargs)
+[rank1]:   File "/mnt/sda/taochangyong/.conda/envs/tcy/lib/python3.10/site-packages/torch/nn/modules/module.py", line 1750, in _call_impl
+[rank1]:     return forward_call(*args, **kwargs)
+[rank1]:   File "/mnt/sda/taochangyong/Projects/Model/YOLO-tcy_v5/models/modules/alignment/rlsfa_gtga_centered.py", line 1417, in forward
+[rank1]:     g = self.estimate_geometry(rgb_feat, tir_feat, rgb_valid_mask, tir_valid_mask)
+[rank1]:   File "/mnt/sda/taochangyong/Projects/Model/YOLO-tcy_v5/models/modules/alignment/rlsfa_gtga_centered.py", line 1088, in estimate_geometry
+[rank1]:     ) = correlation_translation(
+[rank1]:   File "/mnt/sda/taochangyong/Projects/Model/YOLO-tcy_v5/models/modules/alignment/rlsfa_gtga_centered.py", line 276, in correlation_translation
+[rank1]:     corr = (ref.unsqueeze(2) * shifted).sum(1)
+[rank1]: torch.OutOfMemoryError: CUDA out of memory. Tried to allocate 1.00 GiB. GPU 1 has a total capacity of 47.37 GiB of which 437.31 MiB is free. Including non-PyTorch memory, this process has 46.91 GiB memory in use. Of the allocated memory 46.01 GiB is allocated by PyTorch, and 307.25 MiB is reserved by PyTorch but unallocated. If reserved but unallocated memory is large try setting PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True to avoid fragmentation.  See documentation for Memory Management  (https://pytorch.org/docs/stable/notes/cuda.html#environment-variables)
+W1028 20:23:51.794000 335859 site-packages/torch/distributed/elastic/multiprocessing/api.py:897] Sending process 337883 closing signal SIGTERM
+E1028 20:23:52.910000 335859 site-packages/torch/distributed/elastic/multiprocessing/api.py:869] failed (exitcode: 1) local_rank: 0 (pid: 337875) of binary: /mnt/sda/taochangyong/.conda/envs/tcy/bin/python
+Traceback (most recent call last):
+  File "/mnt/sda/taochangyong/.conda/envs/tcy/lib/python3.10/runpy.py", line 196, in _run_module_as_main
+    return _run_code(code, main_globals, None,
+  File "/mnt/sda/taochangyong/.conda/envs/tcy/lib/python3.10/runpy.py", line 86, in _run_code
+    exec(code, run_globals)
+  File "/mnt/sda/taochangyong/.conda/envs/tcy/lib/python3.10/site-packages/torch/distributed/run.py", line 922, in <module>
+    main()
+  File "/mnt/sda/taochangyong/.conda/envs/tcy/lib/python3.10/site-packages/torch/distributed/elastic/multiprocessing/errors/__init__.py", line 355, in wrapper
+    return f(*args, **kwargs)
+  File "/mnt/sda/taochangyong/.conda/envs/tcy/lib/python3.10/site-packages/torch/distributed/run.py", line 918, in main
+    run(args)
+  File "/mnt/sda/taochangyong/.conda/envs/tcy/lib/python3.10/site-packages/torch/distributed/run.py", line 909, in run
+    elastic_launch(
+  File "/mnt/sda/taochangyong/.conda/envs/tcy/lib/python3.10/site-packages/torch/distributed/launcher/api.py", line 138, in __call__
+    return launch_agent(self._config, self._entrypoint, list(args))
+  File "/mnt/sda/taochangyong/.conda/envs/tcy/lib/python3.10/site-packages/torch/distributed/launcher/api.py", line 269, in launch_agent
+    raise ChildFailedError(
+torch.distributed.elastic.multiprocessing.errors.ChildFailedError: 
+============================================================
+/mnt/sda/taochangyong/Projects/Model/YOLO-tcy_v5/train_ahr2net_v5_scratch.py FAILED
+------------------------------------------------------------
+Failures:
+  <NO_OTHER_FAILURES>
+------------------------------------------------------------
+Root Cause (first observed failure):
+[0]:
+  time      : 2026-10-28_20:23:51
+  host      : user-X640-G50
+  rank      : 0 (local_rank: 0)
+  exitcode  : 1 (pid: 337875)
+  error_file: <N/A>
+  traceback : To enable traceback see: https://pytorch.org/docs/stable/elastic/errors.html
+============================================================

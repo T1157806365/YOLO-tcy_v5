@@ -149,6 +149,28 @@ def build_model_from_config(
     nc: Optional[int] = None,
     verbose: bool = True,
 ):
+    # AHR2Net integrated dispatch: use original v5 trainer and validator
+    if str((cfg.get("model", {}) or {}).get("variant", "")).strip().lower() == "ahr2net_v5_scratch":
+        from models.ahr2net_scratch_model import build_ahr2net_from_config
+        ahr_cfg = dict(cfg)
+        ahr_cfg["model"] = dict(cfg.get("model", {}) or {})
+        if fusion_override is not None and str(fusion_override).lower() != "auto":
+            ahr_cfg["model"]["fusion"] = str(fusion_override)
+        if nc is not None:
+            ahr_cfg["model"]["nc"] = int(nc)
+        model = build_ahr2net_from_config(
+            ahr_cfg, verbose=verbose, pretrained_override=pretrained,
+        )
+        if names is not None:
+            model.names = names
+        if hasattr(model, "args"):
+            loss_cfg = cfg.get("loss", {}) or {}
+            model.args.box = float(loss_cfg.get("box", 7.5))
+            model.args.cls = float(loss_cfg.get("cls", 0.5))
+            model.args.dfl = float(loss_cfg.get("dfl", 1.5))
+            model.criterion = None
+        return model
+
     model_cfg = cfg.get("model", {}) or {}
     data_cfg = cfg.get("data", {}) or {}
     loss_cfg = cfg.get("loss", {}) or {}
@@ -418,6 +440,8 @@ def build_model_from_config(
     elif variant in {
         "rlsfa_gtga_centered_bhlr_v2",
         "rlsfa_gtga_centered",
+        "rlsfa_gtga_centered_reliability_fusion_v1",
+        "rlsfa_gtga_centered_reliability_fusion_p34_v2",
     }:
         from models.rgbt_rlsfa_gtga_centered_bhlr_model import (
             RGBTRLSFAGTGACenteredBHLRV2DetectionModel,
@@ -447,7 +471,29 @@ def build_model_from_config(
             or {}
         )
 
-        model = RGBTRLSFAGTGACenteredBHLRV2DetectionModel(
+        # RL_FUSION_INTEGRATED_V1: choose model subclass ONLY for the new YAML.
+        # ARF_P34_FACTORY_V2: separate class and checkpoint variant.
+        if variant == "rlsfa_gtga_centered_reliability_fusion_p34_v2":
+            from models.rgbt_reliability_fusion_p34_model import (
+                RGBTAlignmentReliabilityP34FusionDetectionModel,
+            )
+            model_class = RGBTAlignmentReliabilityP34FusionDetectionModel
+            model_extra = {
+                "reliability_fusion_cfg": dict(model_cfg.get("reliability_fusion", {}) or {})
+            }
+        elif variant == "rlsfa_gtga_centered_reliability_fusion_v1":
+            from models.rgbt_reliability_fusion_model import (
+                RGBTAlignmentReliabilityFusionDetectionModel,
+            )
+            model_class = RGBTAlignmentReliabilityFusionDetectionModel
+            model_extra = {
+                "reliability_fusion_cfg": dict(model_cfg.get("reliability_fusion", {}) or {})
+            }
+        else:
+            model_class = RGBTRLSFAGTGACenteredBHLRV2DetectionModel
+            model_extra = {}
+
+        model = model_class(
             model_name=str(
                 model_cfg.get(
                     "name",
@@ -542,6 +588,7 @@ def build_model_from_config(
                 or {}
             ),
             verbose=verbose,
+            **model_extra,
         )
 
     # --------------------------------------------------------
