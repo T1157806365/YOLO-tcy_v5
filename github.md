@@ -13,6 +13,7 @@ git push -u origin backup-20261030-teacher
 
 
 # 重新推送
+conda activate tcy
 cd /mnt/sda/taochangyong/Projects/Model/YOLO-tcy_v5
 git -c http.version=HTTP/1.1 push -u origin backup-20261030-teacher
 

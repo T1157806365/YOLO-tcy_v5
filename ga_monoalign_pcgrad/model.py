@@ -142,7 +142,7 @@ class AlignmentProtectedStudent(nn.Module):
                 'bboxes':batch['tir_bboxes'],'batch_idx':batch['tir_batch_idx']}
 
     @staticmethod
-    def _pcgrad_feature_hooks(align_loss, auxiliary_loss, rgb_feats, tir_feats, enabled=True):
+    def _pcgrad_feature_hooks(align_loss, auxiliary_loss, rgb_feats, tir_feats, enabled=True, backward_scale=1.0):
         """Conflict-protect auxiliary gradient at feature *outputs*, not parameters.
 
         Uses autograd.grad only on intermediary features: DDP parameter reducers
@@ -173,7 +173,7 @@ class AlignmentProtectedStudent(nn.Module):
                 coef=(dot/na.clamp_min(1e-12)).detach()
                 for feat,a,m in zip(feats,ga,gm):
                     if a is None or m is None:continue
-                    pending.append((feat,(-coef*a.detach()).to(feat.dtype)))
+                    pending.append((feat,(-coef*a.detach()*backward_scale).to(feat.dtype)))
         # Install hooks only AFTER all gradient probes: otherwise the RGB
         # correction could contaminate the TIR probe on a shared graph.
         for feat,correction in pending:
@@ -228,7 +228,8 @@ class AlignmentProtectedStudent(nn.Module):
         rg=[features['rgb_backbone_raw'][i] for i in indices]
         tg=[features['tir_backbone'][i] for i in indices]
         diags=self._pcgrad_feature_hooks(align,mono+kd,rg,tg,
-                    enabled=bool(self.cfg['monoalign'].get('pcgrad_enabled',True)) and wm>0)
+                    enabled=bool(self.cfg['monoalign'].get('pcgrad_enabled',True)) and wm>0,
+                    backward_scale=float(getattr(self, '_pcgrad_backward_scale', 1.0)))
         # Scalar losses packed in a vector for existing trainer-style logs.
         total=torch.stack((det,align,mono,kd))
         logs.update({'rgb_aux_loss':lr.sum().detach()/bsz,

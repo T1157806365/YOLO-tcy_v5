@@ -90,6 +90,18 @@ def run_stage(net,cfg,train_loader,val_loader,device,out,stage,nepoch,lr0,
         it=tqdm(train_loader,disable=not is_main_process(),desc=f'{stage} {epoch}/{nepoch}')
         for bi,batch in enumerate(it):
             batch=preprocess_batch(batch,device)
+
+            # PCGrad correction must match the scaled backward gradient.
+            # Actual backward:
+            # scaler.scale(loss_vec.sum() / (batch_size * accumulation))
+            raw._pcgrad_backward_scale = (
+                float(scaler.get_scale())
+                / (
+                    max(1, int(batch['rgb_img'].shape[0]))
+                    * accumulation
+                )
+            )
+
             # no_sync only on intermediate accumulation steps.
             import contextlib
             sync_now=(bi+1)%accumulation==0 or (bi+1)==len(train_loader)
