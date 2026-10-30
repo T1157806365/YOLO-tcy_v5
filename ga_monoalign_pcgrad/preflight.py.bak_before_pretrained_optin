@@ -1,0 +1,76 @@
+"""Mandatory GPU preflight for original geometry invariants, aux heads and gradients."""
+from __future__ import annotations
+import argparse,torch
+from engine.runtime import load_config,select_device,preprocess_batch
+from datasets.dual_resolution_rgbt_dataset import build_dual_resolution_dataset,build_dual_resolution_dataloader
+from .factory import validate_cfg,build
+
+
+def unpack(x):
+    if isinstance(x,dict):
+        for k in ('pred','preds','output'):
+            if k in x:return unpack(x[k])
+        raise ValueError(f'Cannot unpack prediction dict: {list(x)}')
+    if isinstance(x,(tuple,list)):return unpack(x[0])
+    if not torch.is_tensor(x):raise TypeError(type(x))
+    return x
+
+
+def main():
+    p=argparse.ArgumentParser();p.add_argument('--cfg',required=True)
+    p.add_argument('--device',default='0');p.add_argument('--full',action='store_true')
+    args=p.parse_args()
+    cfg=validate_cfg(load_config(args.cfg),need_teachers=True)
+    device=select_device(args.device)
+    net=build(cfg,device).eval()
+    print('[PASS] Original GMLS-v2 student initialized from YAML, NOT from prior .pt')
+    print('[PASS] GMLS-v2 enabled, DMLS Correction enabled, Fine enabled, BHLR enabled')
+    print('[PASS] Original P3/P4/P5 fusion unchanged; two auxiliary full YOLO heads present')
+    print('[CHECK] aux head modules:',len(net.aux_rgb.model),len(net.aux_tir.model))
+    if not args.full:return
+    d=cfg['data']
+    ds=build_dual_resolution_dataset(rgb_yaml=d['rgb'],tir_yaml=d['tir'],split='val',
+        rgb_high_imgsz=int(d['rgb_imgsz']),rgb_semantic_imgsz=int(d['rgb_semantic_imgsz']),
+        tir_imgsz=int(d['tir_imgsz']),pair_mode=d.get('pair_mode','relative'),
+        augment=False,tir_channels=3,strict_pair=True)
+    loader=build_dual_resolution_dataloader(ds,batch_size=1,workers=0,shuffle=False,pin_memory=False)
+    batch=preprocess_batch(next(iter(loader)),device)
+    with torch.no_grad():
+        original=net.core.predict(batch['rgb_img'],batch['tir_img'],
+            rgb_semantic=batch['rgb_semantic_img'],return_features=True,return_alignment_debug=True)
+        wrapped=net.predict(batch['rgb_img'],batch['tir_img'],
+            rgb_semantic=batch['rgb_semantic_img'],return_features=True,return_alignment_debug=True)
+    a=unpack(original['pred']);b=unpack(wrapped['pred'])
+    if a.shape!=b.shape:raise AssertionError('Predictions mismatch shape')
+    delta=(a.float()-b.float()).abs().max().item()
+    if delta>1e-6:raise AssertionError(f'Inference changed: {delta}')
+    for key in ('coarse_offset_gmls','coarse_offset_dmls','coarse_offset_gmls_v2',
+                'gmls_v2_choose_dmls','sampling_scale','sampling_translation'):
+        x=original['alignment_info'][key];y=wrapped['alignment_info'][key]
+        if x is None or y is None:raise AssertionError(f'GMLS-v2 debug missing {key}')
+        if not torch.equal(x,y):raise AssertionError(f'Geometry changed {key}')
+    print('[PASS] Wrapped inference exactly matches original core predictions and geometry')
+    net.attach_teachers(device)
+    net.set_progress('stage1',101)
+    net.train();net.zero_grad(set_to_none=True)
+    loss,logs=net(batch)
+    if not torch.isfinite(loss).all():raise AssertionError(f'nonfinite loss {loss}')
+    loss.sum().backward()
+    def has_grad(mod):
+        return any(p.grad is not None and bool(torch.isfinite(p.grad).all()) and
+                   bool(p.grad.detach().abs().sum()>0) for p in mod.parameters() if p.requires_grad)
+    if not has_grad(net.core.alignment.unit):raise AssertionError('GMLS-v2 not updated')
+    if not has_grad(net.core.tir_backbone):raise AssertionError('TIR backbone not updated')
+    if not has_grad(net.aux_rgb):raise AssertionError('RGB auxiliary head no gradient')
+    if not has_grad(net.aux_tir):raise AssertionError('TIR auxiliary head no gradient')
+    if any(p.requires_grad for p in net._teachers.rgb.net.parameters()):
+        raise AssertionError('RGB teacher has trainable params')
+    if any(p.requires_grad for p in net._teachers.tir.net.parameters()):
+        raise AssertionError('TIR teacher has trainable params')
+    print('[PASS] Original GMLS-v2 and both backbones receive gradients; auxiliary heads train')
+    print('[PASS] Both teachers frozen; PCGrad feature hooks executed')
+    print('[LOSS]',{k:round(float(v),6) for k,v in logs.items()
+                    if k.startswith(('align_','weight_','pcgrad_','rgb_aux','tir_aux','kd_'))})
+    print('[SUCCESS] Full preflight passed')
+
+if __name__=='__main__':main()

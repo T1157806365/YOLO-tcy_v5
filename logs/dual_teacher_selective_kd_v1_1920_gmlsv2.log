@@ -1,0 +1,2 @@
+nohup: 忽略输入
+/mnt/sda/taochangyong/.conda/envs/tcy/bin/python: Error while finding module specification for 'dual_teacher_selective_kd_v2.train' (ModuleNotFoundError: No module named 'dual_teacher_selective_kd_v2')

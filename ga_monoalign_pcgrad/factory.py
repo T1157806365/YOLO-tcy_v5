@@ -1,0 +1,53 @@
+"""Strict configuration enforcement; original model factory only."""
+from __future__ import annotations
+from pathlib import Path
+import torch
+from models.gtga_bhlr_factory import build_model_from_config
+from .model import AlignmentProtectedStudent
+
+
+def validate_cfg(cfg,need_teachers=False):
+    m=cfg['model'];a=m['rlsfa_gtga_centered'];b=m['bhlr'];l=cfg['loss']['alignment'];tr=cfg['train']
+    required={'coarse_gmls_enabled':True,'gmls_v2_correction_enabled':True,
+              'fine_translation_enabled':True,'coarse_gmls_topk':3}
+    for k,v in required.items():
+        if a.get(k)!=v:raise ValueError(f'Original GMLS-v2 invariant violated: {k} must be {v}')
+    if (m.get('variant')!='rlsfa_gtga_centered_bhlr_v2' or
+        type(m.get('pretrained')) is not bool or m.get('fusion')!='add'):
+        raise ValueError('Keep original variant / add fusion; pretrained must be YAML boolean true or false')
+    if a.get('apply_scales')!=[3,4,5] or b.get('scales')!=[3] or not b.get('enabled'):
+        raise ValueError('Keep original P3/P4/P5 alignment and BHLR-P3')
+    if any(float(l.get(k,0))<=0 for k in ('lambda_alignment','lambda_v2_quality','lambda_v2_route')):
+        raise ValueError('Original geometry/quality/route losses must stay enabled')
+    if tr.get('resume') or tr.get('init_student_weights'):
+        raise ValueError('Do not load old RGB-T student checkpoint: resume/init_student_weights must be null')
+    if tr.get('batch_mode')!='global':raise ValueError('Require global batch for consistent scaling')
+    if int(tr.get('epochs',0))!=300 or int(tr.get('stage2',{}).get('epochs',0))!=200:
+        raise ValueError('Require original 300+200 epoch schedule')
+    if need_teachers:
+        for t in ('rgb_weights','tir_weights'):
+            p=Path(cfg['dual_teachers'][t]).expanduser()
+            if not p.is_file():raise FileNotFoundError(f'Teacher weights missing: {p}')
+    return cfg
+
+
+def build(cfg,device='cpu',load_pretrained=True):
+    validate_cfg(cfg)
+    # Official YOLO26m pretrained weights initialize BOTH independent branches.
+    # Never load a previous RGB-T student checkpoint.
+    use_pretrained = bool(cfg['model']['pretrained']) and bool(load_pretrained)
+    core=build_model_from_config(cfg,pretrained=use_pretrained,verbose=False)
+    u=core.alignment.unit
+    if not (u.coarse_gmls_enabled and u.gmls_v2_correction_enabled and u.fine_translation_enabled):
+        raise AssertionError('Original GMLS-v2 implementation is not active')
+    return AlignmentProtectedStudent(core,cfg).to(device)
+
+
+def load_checkpoint(path,device='cpu'):
+    ck=torch.load(path,map_location='cpu',weights_only=False)
+    cfg=validate_cfg(ck['config'])
+    model=build(cfg,'cpu',load_pretrained=False)
+    sd=ck['model_state_dict']
+    if sd and all(k.startswith('module.') for k in sd):sd={k[7:]:v for k,v in sd.items()}
+    model.load_state_dict(sd,strict=True)
+    return model.to(device).eval(),ck,cfg

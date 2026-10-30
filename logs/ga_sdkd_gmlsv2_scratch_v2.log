@@ -1,0 +1,13 @@
+nohup: 忽略输入
+Traceback (most recent call last):
+  File "/mnt/sda/taochangyong/.conda/envs/tcy/lib/python3.10/runpy.py", line 196, in _run_module_as_main
+    return _run_code(code, main_globals, None,
+  File "/mnt/sda/taochangyong/.conda/envs/tcy/lib/python3.10/runpy.py", line 86, in _run_code
+    exec(code, run_globals)
+  File "/mnt/sda/taochangyong/Projects/Model/YOLO-tcy_v5/ga_sdkd_gmlsv2_scratch/train.py", line 92, in <module>
+    if __name__=='__main__':main()
+  File "/mnt/sda/taochangyong/Projects/Model/YOLO-tcy_v5/ga_sdkd_gmlsv2_scratch/train.py", line 23, in main
+    check_cfg(cfg,require_teachers=True)
+  File "/mnt/sda/taochangyong/Projects/Model/YOLO-tcy_v5/ga_sdkd_gmlsv2_scratch/factory.py", line 30, in check_cfg
+    raise ValueError('From-scratch student requires model.pretrained: false')
+ValueError: From-scratch student requires model.pretrained: false

@@ -2,32 +2,29 @@ traincc:
   conda activate tcy
   cd /mnt/sda/taochangyong/Projects/Model/YOLO-tcy_v5
   mkdir -p logs pid
-  nohup python -u -m dual_teacher_selective_kd_v1.train \
-    --cfg configs/experiments/dual_teacher_selective_kd_v1/uavcb_dual_teacher_1920.yaml \
-    > logs/dual_teacher_selective_kd_v1_1920.log 2>&1 &
-  echo $! > pid/dual_teacher_selective_kd_v1_1920.pid
-  tail -n 5 -f logs/dual_teacher_selective_kd_v1_1920.log
+  nohup python -u -m ga_monoalign_pcgrad.train \
+    --cfg configs/experiments/ga_monoalign_pcgrad_v1/uavcb_scratch_gmlsv2_metricfix.yaml \
+    > logs/ga_monoalign_pcgrad_metricfix.log 2>&1 &
+  echo $! > pid/ga_monoalign_pcgrad_metricfix.pid
+  tail -n 5 -f logs/ga_monoalign_pcgrad_metricfix.log
 
   conda activate tcy
   cd /mnt/sda/taochangyong/Projects/Model/YOLO-tcy_v5
-  python -m dual_teacher_selective_kd_v1.val \
-    --weights runs/dual_teacher_selective_kd_v1/yolo26m_UAVCB_RGB1920_TIR640_DoubleTeacher_SelectiveKD_seed0/weights/stage2_best.pt \
+  python -m ga_monoalign_pcgrad.val \
+    --weights runs/ga_monoalign_pcgrad_v1/yolo26m_UAVCB_GMLSv2_MonoAlignPCGrad_Scratch_seed0/weights/best.pt \
     --split test \
     --device 3 \
     --batch 2 \
     --workers 4 \
     --conf 0.001 \
-    --iou 0.70
+    --iou 0.70 \
+    --geometry-all
 model:
-  variant: dual_teacher_selective_kd_v1
+  variant: rlsfa_gtga_centered_bhlr_v2
   name: yolo26m
   nc: 1
-  pretrained: true
+  pretrained: false
   fusion: add
-  fusion_indices:
-  - 4
-  - 6
-  - 10
   align_mode: bilinear
   rlsfa_gtga_centered:
     enabled: true
@@ -38,17 +35,25 @@ model:
     - 4
     - 5
     hidden_channels: 32
-    coarse_radius: 20
+    coarse_radius: 16
     coarse_temperature: 0.1
-    coarse_local_soft_enabled: true
+    use_targetness_for_correlation: true
+    coarse_local_soft_enabled: false
     coarse_local_radius: 6
     coarse_local_temperature: 0.1
-    coarse_gmls_enabled: false
-    gmls_v2_correction_enabled: false
+    coarse_gmls_enabled: true
+    coarse_gmls_topk: 3
+    coarse_gmls_nms_radius: 4
+    coarse_gmls_aggregation_temperature: 0.12
+    coarse_gmls_global_prior: 0.6
+    coarse_gmls_feature_weight: 0.65
+    coarse_gmls_target_weight: 0.35
+    gmls_v2_correction_enabled: true
+    gmls_v2_quality_hidden: 32
+    gmls_v2_route_logit_margin: 0.2
     fine_translation_enabled: true
     fine_translation_radius: 2
     fine_translation_temperature: 0.05
-    use_targetness_for_correlation: true
     anchor_power: 4.0
     moment_power: 2.0
     local_window_sigma: 0.1
@@ -78,10 +83,9 @@ data:
   tir_imgsz: 640
   pair_mode: relative
 train:
-  device: 5,6
+  device: 0,4
   batch: 32
   batch_mode: global
-  val_batch: 2
   workers: 4
   epochs: 300
   optimizer: SGD
@@ -96,7 +100,6 @@ train:
   patience: 50
   early_stop_min_delta: 1.0e-06
   resume: null
-  ddp_find_unused_parameters: true
   stage2:
     enabled: true
     epochs: 200
@@ -104,6 +107,9 @@ train:
     lrf: 0.01
     patience: 50
     early_stop_min_delta: 1.0e-06
+  accumulate: 1
+  init_student_weights: null
+  ddp_find_unused_parameters: true
 augment:
   fliplr: 0.5
   flipud: 0.0
@@ -124,23 +130,26 @@ loss:
     gtga_gaussian_sigma_factor: 0.25
     gtga_gaussian_sigma_min_px: 1.0
     clamp_gt_translation: true
+    lambda_v2_quality: 0.25
+    lambda_v2_route: 0.1
+    v2_quality_iou_weight: 0.8
+    v2_quality_advantage: 0.05
+    v2_route_target_temperature: 0.05
 output:
-  project: runs/dual_teacher_selective_kd_v1
-  name: yolo26m_UAVCB_RGB1920_TIR640_DoubleTeacher_SelectiveKD_seed0
+  project: runs/ga_monoalign_pcgrad_v1
+  name: yolo26m_UAVCB_GMLSv2_MonoAlignPCGrad_Scratch_seed0_DDPMetricFix
 dual_teachers:
   rgb_weights: /mnt/sda/taochangyong/Projects/Model/YOLO-tcy_v5/runs/base/yolo26m-RGB_640_300e_bs16_seed0_new/weights/best.pt
   tir_weights: /mnt/sda/taochangyong/Projects/Model/YOLO-tcy_v5/runs/base/yolo26m-TIR_640_300e_bs16_seed0_new/weights/best.pt
-  min_conf: 0.15
+  min_conf: 0.3
   min_gt_iou: 0.5
   forward_microbatch: 2
-selective_kd:
-  enabled: true
-  lambda_aux: 0.1
-  lambda_rgb_native: 0.1
-  lambda_tir_native: 0.1
-  lambda_rgb_guard: 0.08
-  rgb_margin: 0.03
-  lambda_tir_cross: 0.03
-  lambda_reliability: 0.1
-  lambda_final_center: 0.02
-  lambda_final_giou: 0.1
+monoalign:
+  pcgrad_enabled: true
+  alignment_val_images: 96
+  mono_val_every: 5
+  minimum_stage1_epochs: 130
+  save_joint_gamma: 0.1
+  student_mode: scratch
+  teacher_kd_type: target_roi_attention
+  pcgrad_type: feature_boundary_projection

@@ -1,0 +1,2 @@
+nohup: 忽略输入
+/mnt/sda/taochangyong/.conda/envs/tcy/bin/python: Error while finding module specification for 'online_rgbt_kd_v2.train' (ModuleNotFoundError: No module named 'online_rgbt_kd_v2')

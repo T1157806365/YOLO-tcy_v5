@@ -1,54 +1,3 @@
-#!/usr/bin/env python3
-# -*- coding: utf-8 -*-
-"""
-GMLS v2 dedicated alignment evaluator
-=================================
-
-Evaluation chain:
-    Raw RGB/TIR GT
-      -> Historical GLOBAL soft coarse translation
-      -> Single-mode DMLS local-soft coarse translation
-      -> GMLS global + multi-local soft aggregated coarse translation
-      -> conditionally selected coarse (original GMLS or DMLS)
-      -> selected coarse + original Fine +/-2 translation
-      -> selected coarse + Fine + original Local-GTGA Moment scale
-      -> FINAL one-warp geometry
-
-This evaluator intentionally removes diagnostics from the abandoned robust-v1:
-    - no Top-K hard verification
-    - no Fine confidence gate
-    - no Quantile scale
-    - no scale reliability fallback
-
-Key questions answered
-----------------------
-1) Does single-mode DMLS improve historical Global Soft?
-2) Does GMLS improve further over DMLS?
-3) Does GMLS reduce DMLS catastrophic zero-IoU failures?
-4) Is GMLS closer to GT translation than Global Soft and DMLS?
-5) Does the original Fine stage help after GMLS?
-6) Does the original Moment scale help or hurt after translation?
-
-Geometry convention
--------------------
-The model uses inverse sampling:
-    q = S * p + t
-where p is RGB/output coordinate and q is TIR/source coordinate.
-
-For translation only:
-    q = p + t
-Therefore the GT sampling translation that maps the RGB center p_R to the
-raw TIR center q_T is:
-    t_GT = q_T - p_R
-
-For the final centered geometry:
-    q = c_T + S * (p - c_R)
-      = S * p + (c_T - S*c_R)
-
-TIR GT box -> RGB/output box:
-    p_center = (q_center - t) / S
-    p_size   = q_size / S
-"""
 
 from __future__ import annotations
 
@@ -1518,6 +1467,28 @@ def _dispatch_original_or_online_alignment_evaluator():
         return _evaluate_online_rgbt_kd_v1(args)
     print(f'[ALIGN EVAL] Legacy evaluator for model.variant={variant!r}', flush=True)
     return evaluate(args)
+
+
+# --- DECOUPLED_DUAL_TEACHER_KD_V2_ALIGNMENT_COMPAT_BEGIN ---
+# Only the decoupled variant takes a separate DMLS+Fine+Scale evaluation route.
+# Historical GMLS and OnlineKD evaluation paths remain unchanged.
+_decoupled_v2_original_evaluate = evaluate
+
+def evaluate(args):
+    from pathlib import Path as _DcdkPath
+    _dec_ckpt_path = _DcdkPath(args.weights).expanduser().resolve()
+    # Inspect checkpoint configuration rather than relying on its directory
+    # name: user may copy/rename best.pt without changing the architecture.
+    import torch as _dcdk_torch
+    _dec_ck = _dcdk_torch.load(str(_dec_ckpt_path), map_location='cpu', weights_only=False)
+    _dec_variant = (_dec_ck.get('config', {}).get('model', {}).get('variant')
+                    if isinstance(_dec_ck, dict) else None)
+    del _dec_ck
+    if _dec_variant == 'decoupled_dual_teacher_kd_v2':
+        from decoupled_dual_teacher_kd_v2.alignment_eval_compat import evaluate_decoupled
+        return evaluate_decoupled(args)
+    return _decoupled_v2_original_evaluate(args)
+# --- DECOUPLED_DUAL_TEACHER_KD_V2_ALIGNMENT_COMPAT_END ---
 
 if __name__ == '__main__':
     _dispatch_original_or_online_alignment_evaluator()
