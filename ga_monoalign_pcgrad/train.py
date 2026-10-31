@@ -63,7 +63,21 @@ def run_stage(net,cfg,train_loader,val_loader,device,out,stage,nepoch,lr0,
     raw=net.module if isinstance(net,DDP) else net
     optimizer=tr.build_optimizer(net,cfg,lr0=lr0)
     lrf=float(cfg['train'].get('lrf',.01) if stage=='stage1' else cfg['train']['stage2'].get('lrf',.01))
-    scheduler=tr.build_scheduler(optimizer,nepoch,lrf)
+    # multi_step_100_lr: preserve cosine for legacy YAMLs.
+    train_cfg = cfg['train']
+    lr_schedule = str(train_cfg.get('scheduler', 'cosine')).strip().lower()
+    if stage == 'stage1' and lr_schedule == 'multistep':
+        milestones = [int(x) for x in train_cfg.get('lr_milestones', [50, 80])]
+        gamma_step = float(train_cfg.get('lr_gamma', 0.2))
+        if not (0 < gamma_step < 1):
+            raise ValueError('Invalid train.lr_gamma')
+        if any(x < 1 or x >= nepoch for x in milestones):
+            raise ValueError('Invalid train.lr_milestones')
+        scheduler = torch.optim.lr_scheduler.MultiStepLR(
+            optimizer, milestones=sorted(milestones), gamma=gamma_step
+        )
+    else:
+        scheduler=tr.build_scheduler(optimizer,nepoch,lrf)
     scaler=make_grad_scaler(device,bool(cfg['train'].get('amp',True)))
     amp=bool(cfg['train'].get('amp',True))
     accumulation=int(cfg['train'].get('accumulate',1))
@@ -224,7 +238,7 @@ def main():
         print(f'[TRAIN] rank={rank}, device={device}, batch/rank={loc}, '
               f'global batch={glob}, accumulate={trcfg.get("accumulate",1)}, '
               f'GMLS-v2 original FULL, official YOLO pretrained={cfg["model"]["pretrained"]}',flush=True)
-        one=run_stage(net,cfg,trainloader,valloader,device,output,'stage1',300,
+        one=run_stage(net,cfg,trainloader,valloader,device,output,'stage1',int(trcfg['epochs']),
                       float(trcfg['lr0']),int(trcfg.get('patience',50)),0,-1.)
         distributed_barrier()
         ck=torch.load(one['best_path'],map_location='cpu',weights_only=False)
@@ -232,7 +246,7 @@ def main():
         two=None
         if trcfg.get('stage2',{}).get('enabled',True):
             st=trcfg['stage2']
-            two=run_stage(net,cfg,trainloader,valloader,device,output,'stage2',200,
+            two=run_stage(net,cfg,trainloader,valloader,device,output,'stage2',int(st['epochs']),
                 float(st['lr0']),int(st.get('patience',50)),one['epochs_ran'],one['global_best'])
         if is_main_process():
             summary={'stage1_best':one['best'],'stage2_best':two['best'] if two else None,

@@ -15,15 +15,20 @@ def validate_cfg(cfg,need_teachers=False):
     if (m.get('variant')!='rlsfa_gtga_centered_bhlr_v2' or
         type(m.get('pretrained')) is not bool or m.get('fusion')!='add'):
         raise ValueError('Keep original variant / add fusion; pretrained must be YAML boolean true or false')
-    if a.get('apply_scales')!=[3,4,5] or b.get('scales')!=[3] or not b.get('enabled'):
-        raise ValueError('Keep original P3/P4/P5 alignment and BHLR-P3')
+    if a.get('apply_scales')!=[3,4,5] or b.get('scales')!=[3]:
+        raise ValueError('Keep the original P3/P4/P5 alignment and BHLR-P3 scale specifications')
     if any(float(l.get(k,0))<=0 for k in ('lambda_alignment','lambda_v2_quality','lambda_v2_route')):
         raise ValueError('Original geometry/quality/route losses must stay enabled')
     if tr.get('resume') or tr.get('init_student_weights'):
         raise ValueError('Do not load old RGB-T student checkpoint: resume/init_student_weights must be null')
     if tr.get('batch_mode')!='global':raise ValueError('Require global batch for consistent scaling')
-    if int(tr.get('epochs',0))!=300 or int(tr.get('stage2',{}).get('epochs',0))!=200:
-        raise ValueError('Require original 300+200 epoch schedule')
+    # Accept original 300+200 as well as single-stage 100e.
+    stage1_epochs = int(tr.get('epochs', 0))
+    stage2_cfg = tr.get('stage2', {}) or {}
+    if stage1_epochs < 1:
+        raise ValueError('train.epochs must be >= 1')
+    if bool(stage2_cfg.get('enabled', True)) and int(stage2_cfg.get('epochs', 0)) < 1:
+        raise ValueError('Enabled stage2 requires stage2.epochs >= 1')
     if need_teachers:
         for t in ('rgb_weights','tir_weights'):
             p=Path(cfg['dual_teachers'][t]).expanduser()
@@ -37,10 +42,18 @@ def build(cfg,device='cpu',load_pretrained=True):
     # Never load a previous RGB-T student checkpoint.
     use_pretrained = bool(cfg['model']['pretrained']) and bool(load_pretrained)
     core=build_model_from_config(cfg,pretrained=use_pretrained,verbose=False)
-    u=core.alignment.unit
-    if not (u.coarse_gmls_enabled and u.gmls_v2_correction_enabled and u.fine_translation_enabled):
-        raise AssertionError('Original GMLS-v2 implementation is not active')
-    return AlignmentProtectedStudent(core,cfg).to(device)
+    # ABLATION_COMPAT_V1: alignment unit is intentionally absent for noAlign.
+    if core.alignment_enabled:
+        u=core.alignment.unit
+        if not (u.coarse_gmls_enabled and u.gmls_v2_correction_enabled and u.fine_translation_enabled):
+            raise AssertionError('Original GMLS-v2 implementation is not active')
+    elif core.alignment is not None:
+        raise AssertionError('noAlign unexpectedly instantiated an alignment unit')
+    student = AlignmentProtectedStudent(core, cfg)
+    if load_pretrained and bool(cfg.get('monoalign', {}).get('init_from_teachers', False)):
+        from .teacher_init import initialize_from_dual_teachers
+        initialize_from_dual_teachers(student, cfg)
+    return student.to(device)
 
 
 def load_checkpoint(path,device='cpu'):

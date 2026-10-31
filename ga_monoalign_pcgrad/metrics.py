@@ -47,7 +47,31 @@ def mono_metrics(student,loader,device,amp):
 @torch.no_grad()
 def geometry_iou(student,loader,device,amp=False,max_images=96):
     student.eval()
-    results=[];n=0;zero=0
+    # ABLATION_COMPAT_V1: noAlign measures unwarped GT box overlap; it is NOT learned AlignIoU.
+    if not bool(getattr(student.core, 'alignment_enabled', True)):
+        values=[]; scanned=0; zero=0
+        for batch in loader:
+            bsz=int(batch['rgb_semantic_img'].shape[0])
+            for i in range(bsz):
+                rb=batch['rgb_semantic_bboxes'][batch['rgb_batch_idx']==i]
+                tb=batch['tir_bboxes'][batch['tir_batch_idx']==i]
+                if rb.shape[0]!=1 or tb.shape[0]!=1:
+                    continue
+                rbox=xywh2xyxy(rb.float())[0]
+                tbox=xywh2xyxy(tb.float())
+                overlap=float(box_iou_single(rbox,tbox).max().item())
+                values.append(overlap)
+                zero+=int(overlap<=1e-12)
+            scanned+=bsz
+            if scanned>=max_images:
+                break
+        if not values:
+            raise RuntimeError('No valid RGB/TIR paired GT for noAlign baseline')
+        value=sum(values)/len(values)
+        return {'align_iou':value, 'unaligned_identity_iou':value,
+                'align_zero':zero,'align_pairs':len(values),
+                'align_images_scanned':scanned,'align_gate_images':0}
+    results=[];n=0;zero=0;gate_total=0;gate_dmls=0
     for batch in loader:
         batch=preprocess_batch(batch,device)
         with autocast_context(device,amp):
@@ -55,6 +79,13 @@ def geometry_iou(student,loader,device,amp=False,max_images=96):
                 rgb_semantic=batch['rgb_semantic_img'],return_features=True,
                 return_alignment_debug=True)
         geom=preds['alignment_info']
+        dbgs=geom.get('scale_debug', {}) or {}
+        scale=int(getattr(student.core, 'gtga_reference_scale', 3))
+        dbg=dbgs.get(scale, dbgs.get(str(scale), geom))
+        choice=dbg.get('gmls_v2_choose_dmls', None)
+        if torch.is_tensor(choice):
+            gate_total += int(choice.numel())
+            gate_dmls += int(choice.detach().bool().sum().item())
         s=geom['sampling_scale'].float()
         t=geom['sampling_translation'].float()
         bsz=batch['rgb_semantic_img'].shape[0]
@@ -71,4 +102,6 @@ def geometry_iou(student,loader,device,amp=False,max_images=96):
         n+=bsz
         if n>=max_images:break
     return {'align_iou':sum(results)/len(results) if results else float('nan'),
-            'align_zero':zero,'align_pairs':len(results),'align_images_scanned':n}
+            'align_zero':zero,'align_pairs':len(results),'align_images_scanned':n,
+            'align_dmls_pick_rate':gate_dmls/gate_total if gate_total else float('nan'),
+            'align_gate_images':gate_total}

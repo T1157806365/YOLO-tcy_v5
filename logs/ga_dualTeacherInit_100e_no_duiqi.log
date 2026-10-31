@@ -1,0 +1,146 @@
+nohup: 忽略输入
+[DDP] Physical GPUs: [5, 6]
+
+============================================================
+RGB-T Paired Dataset
+============================================================
+Split        : train
+RGB YAML     : /mnt/sda/taochangyong/Projects/Model/YOLO-tcy_v5/configs/datasets/UAV-CB-RGB.yaml
+TIR YAML     : /mnt/sda/taochangyong/Projects/Model/YOLO-tcy_v5/configs/datasets/UAV-CB-TIR.yaml
+RGB images   : 2032
+TIR images   : 2032
+Pairs        : 2032
+Missing TIR  : 0
+Missing RGB  : 0
+Pair mode    : relative
+RGB imgsz    : (1920, 1920)
+TIR imgsz    : (640, 640)
+TIR channels : 3
+Classes      : 1
+============================================================
+
+RSD-T RGB high: (1920, 1920)
+RSD-T RGB semantic: (640, 640)
+
+============================================================
+RGB-T Paired Dataset
+============================================================
+Split        : train
+RGB YAML     : /mnt/sda/taochangyong/Projects/Model/YOLO-tcy_v5/configs/datasets/UAV-CB-RGB.yaml
+TIR YAML     : /mnt/sda/taochangyong/Projects/Model/YOLO-tcy_v5/configs/datasets/UAV-CB-TIR.yaml
+RGB images   : 2032
+TIR images   : 2032
+Pairs        : 2032
+Missing TIR  : 0
+Missing RGB  : 0
+Pair mode    : relative
+RGB imgsz    : (1920, 1920)
+TIR imgsz    : (640, 640)
+TIR channels : 3
+Classes      : 1
+============================================================
+
+RSD-T RGB high: (1920, 1920)
+RSD-T RGB semantic: (640, 640)
+
+============================================================
+RGB-T Paired Dataset
+============================================================
+Split        : val
+RGB YAML     : /mnt/sda/taochangyong/Projects/Model/YOLO-tcy_v5/configs/datasets/UAV-CB-RGB.yaml
+TIR YAML     : /mnt/sda/taochangyong/Projects/Model/YOLO-tcy_v5/configs/datasets/UAV-CB-TIR.yaml
+RGB images   : 679
+TIR images   : 679
+Pairs        : 679
+Missing TIR  : 0
+Missing RGB  : 0
+Pair mode    : relative
+RGB imgsz    : (1920, 1920)
+TIR imgsz    : (640, 640)
+TIR channels : 3
+Classes      : 1
+============================================================
+
+RSD-T RGB high: (1920, 1920)
+RSD-T RGB semantic: (640, 640)
+Overriding model.yaml nc=80 with nc=1
+Overriding model.yaml nc=80 with nc=1
+[rank1]: Traceback (most recent call last):
+[rank1]:   File "/mnt/sda/taochangyong/.conda/envs/tcy/lib/python3.10/runpy.py", line 196, in _run_module_as_main
+[rank1]:     return _run_code(code, main_globals, None,
+[rank1]:   File "/mnt/sda/taochangyong/.conda/envs/tcy/lib/python3.10/runpy.py", line 86, in _run_code
+[rank1]:     exec(code, run_globals)
+[rank1]:   File "/mnt/sda/taochangyong/Projects/Model/YOLO-tcy_v5/ga_monoalign_pcgrad/train.py", line 263, in <module>
+[rank1]:     if __name__=='__main__':main()
+[rank1]:   File "/mnt/sda/taochangyong/Projects/Model/YOLO-tcy_v5/ga_monoalign_pcgrad/train.py", line 230, in main
+[rank1]:     student=build(cfg,device=device)
+[rank1]:   File "/mnt/sda/taochangyong/Projects/Model/YOLO-tcy_v5/ga_monoalign_pcgrad/factory.py", line 44, in build
+[rank1]:     core=build_model_from_config(cfg,pretrained=use_pretrained,verbose=False)
+[rank1]:   File "/mnt/sda/taochangyong/Projects/Model/YOLO-tcy_v5/models/gtga_bhlr_factory.py", line 496, in build_model_from_config
+[rank1]:     model = model_class(
+[rank1]:   File "/mnt/sda/taochangyong/Projects/Model/YOLO-tcy_v5/models/rgbt_rlsfa_gtga_centered_bhlr_model.py", line 200, in __init__
+[rank1]:     raise ValueError("alignment-guided BHLR requires alignment enabled.")
+[rank1]: ValueError: alignment-guided BHLR requires alignment enabled.
+[rank0]: Traceback (most recent call last):
+[rank0]:   File "/mnt/sda/taochangyong/.conda/envs/tcy/lib/python3.10/runpy.py", line 196, in _run_module_as_main
+[rank0]:     return _run_code(code, main_globals, None,
+[rank0]:   File "/mnt/sda/taochangyong/.conda/envs/tcy/lib/python3.10/runpy.py", line 86, in _run_code
+[rank0]:     exec(code, run_globals)
+[rank0]:   File "/mnt/sda/taochangyong/Projects/Model/YOLO-tcy_v5/ga_monoalign_pcgrad/train.py", line 263, in <module>
+[rank0]:     if __name__=='__main__':main()
+[rank0]:   File "/mnt/sda/taochangyong/Projects/Model/YOLO-tcy_v5/ga_monoalign_pcgrad/train.py", line 230, in main
+[rank0]:     student=build(cfg,device=device)
+[rank0]:   File "/mnt/sda/taochangyong/Projects/Model/YOLO-tcy_v5/ga_monoalign_pcgrad/factory.py", line 44, in build
+[rank0]:     core=build_model_from_config(cfg,pretrained=use_pretrained,verbose=False)
+[rank0]:   File "/mnt/sda/taochangyong/Projects/Model/YOLO-tcy_v5/models/gtga_bhlr_factory.py", line 496, in build_model_from_config
+[rank0]:     model = model_class(
+[rank0]:   File "/mnt/sda/taochangyong/Projects/Model/YOLO-tcy_v5/models/rgbt_rlsfa_gtga_centered_bhlr_model.py", line 200, in __init__
+[rank0]:     raise ValueError("alignment-guided BHLR requires alignment enabled.")
+[rank0]: ValueError: alignment-guided BHLR requires alignment enabled.
+W1031 20:06:15.399000 170399 site-packages/torch/distributed/elastic/multiprocessing/api.py:897] Sending process 170422 closing signal SIGTERM
+E1031 20:06:15.564000 170399 site-packages/torch/distributed/elastic/multiprocessing/api.py:869] failed (exitcode: 1) local_rank: 0 (pid: 170421) of binary: /mnt/sda/taochangyong/.conda/envs/tcy/bin/python
+Traceback (most recent call last):
+  File "/mnt/sda/taochangyong/.conda/envs/tcy/lib/python3.10/runpy.py", line 196, in _run_module_as_main
+    return _run_code(code, main_globals, None,
+  File "/mnt/sda/taochangyong/.conda/envs/tcy/lib/python3.10/runpy.py", line 86, in _run_code
+    exec(code, run_globals)
+  File "/mnt/sda/taochangyong/.conda/envs/tcy/lib/python3.10/site-packages/torch/distributed/run.py", line 922, in <module>
+    main()
+  File "/mnt/sda/taochangyong/.conda/envs/tcy/lib/python3.10/site-packages/torch/distributed/elastic/multiprocessing/errors/__init__.py", line 355, in wrapper
+    return f(*args, **kwargs)
+  File "/mnt/sda/taochangyong/.conda/envs/tcy/lib/python3.10/site-packages/torch/distributed/run.py", line 918, in main
+    run(args)
+  File "/mnt/sda/taochangyong/.conda/envs/tcy/lib/python3.10/site-packages/torch/distributed/run.py", line 909, in run
+    elastic_launch(
+  File "/mnt/sda/taochangyong/.conda/envs/tcy/lib/python3.10/site-packages/torch/distributed/launcher/api.py", line 138, in __call__
+    return launch_agent(self._config, self._entrypoint, list(args))
+  File "/mnt/sda/taochangyong/.conda/envs/tcy/lib/python3.10/site-packages/torch/distributed/launcher/api.py", line 269, in launch_agent
+    raise ChildFailedError(
+torch.distributed.elastic.multiprocessing.errors.ChildFailedError: 
+============================================================
+ga_monoalign_pcgrad.train FAILED
+------------------------------------------------------------
+Failures:
+  <NO_OTHER_FAILURES>
+------------------------------------------------------------
+Root Cause (first observed failure):
+[0]:
+  time      : 2026-10-31_20:06:15
+  host      : user-X640-G50
+  rank      : 0 (local_rank: 0)
+  exitcode  : 1 (pid: 170421)
+  error_file: <N/A>
+  traceback : To enable traceback see: https://pytorch.org/docs/stable/elastic/errors.html
+============================================================
+Traceback (most recent call last):
+  File "/mnt/sda/taochangyong/.conda/envs/tcy/lib/python3.10/runpy.py", line 196, in _run_module_as_main
+    return _run_code(code, main_globals, None,
+  File "/mnt/sda/taochangyong/.conda/envs/tcy/lib/python3.10/runpy.py", line 86, in _run_code
+    exec(code, run_globals)
+  File "/mnt/sda/taochangyong/Projects/Model/YOLO-tcy_v5/ga_monoalign_pcgrad/train.py", line 263, in <module>
+    if __name__=='__main__':main()
+  File "/mnt/sda/taochangyong/Projects/Model/YOLO-tcy_v5/ga_monoalign_pcgrad/train.py", line 220, in main
+    subprocess.run(cmd,check=True,env=env)
+  File "/mnt/sda/taochangyong/.conda/envs/tcy/lib/python3.10/subprocess.py", line 526, in run
+    raise CalledProcessError(retcode, process.args,
+subprocess.CalledProcessError: Command '['/mnt/sda/taochangyong/.conda/envs/tcy/bin/python', '-m', 'torch.distributed.run', '--standalone', '--nproc_per_node=2', '-m', 'ga_monoalign_pcgrad.train', '--cfg', '/mnt/sda/taochangyong/Projects/Model/YOLO-tcy_v5/configs/experiments/ga_monoalign_pcgrad_v1/opt_v1_officialPT_single100_step_dualTeacherInit.yaml']' returned non-zero exit status 1.

@@ -3,17 +3,17 @@ traincc: |
   cd /mnt/sda/taochangyong/Projects/Model/YOLO-tcy_v5
   mkdir -p logs pid
   nohup python -u -m ga_monoalign_pcgrad.train \
-    --cfg configs/experiments/ga_monoalign_pcgrad_v1/uavcb_gmlsv2_official_pretrained.yaml \
-    > logs/ga_monoalign_pcgrad_official_pretrained.log 2>&1 &
-  echo $! > pid/ga_monoalign_pcgrad_official_pretrained.pid
-  tail -n 5 -f logs/ga_monoalign_pcgrad_official_pretrained.log
+    --cfg configs/experiments/ga_monoalign_pcgrad_v1/opt_v1_officialPT_single100_step_dualTeacherInit_noBHLR.yaml \
+    > logs/ga_100e_dualTeacherInit_noBHLR.log 2>&1 &
+  echo $! > pid/ga_100e_dualTeacherInit_noBHLR.pid
+  tail -n 5 -f logs/ga_100e_dualTeacherInit_noBHLR.log
 
   conda activate tcy
   cd /mnt/sda/taochangyong/Projects/Model/YOLO-tcy_v5
   python -m ga_monoalign_pcgrad.val \
-    --weights runs/ga_monoalign_pcgrad_v1/yolo26m_UAVCB_GMLSv2_MonoAlignPCGrad_OfficialYOLO26mPT_seed0_DDPMetricFix/weights/best.pt \
+    --weights runs/ga_monoalign_pcgrad_100e/yolo26m_UAVCB_OfficialPT_MonoKD_PCGrad_100e_Step_seed0_v1_dualTeacherInit_noBHLR/weights/best.pt \
     --split test \
-    --device 0 \
+    --device 2 \
     --batch 4 \
     --workers 4 \
     --conf 0.001 \
@@ -64,7 +64,7 @@ model:
     reliability_gate:
       enabled: false
   bhlr:
-    enabled: true
+    enabled: false
     scales: [3]
     high_to_semantic_ratio: 3
     detail_channels: 48
@@ -86,9 +86,12 @@ train:
   batch: 32
   batch_mode: global
   workers: 4
-  epochs: 300
+  epochs: 100
   optimizer: SGD
-  lr0: 0.01
+  lr0: 0.005
+  scheduler: multistep
+  lr_milestones: [50, 80]
+  lr_gamma: 0.2
   lrf: 0.01
   momentum: 0.937
   weight_decay: 0.0005
@@ -96,12 +99,12 @@ train:
   seed: 0
   deterministic: true
   grad_clip: 10.0
-  patience: 50
+  patience: 20
   early_stop_min_delta: 1.0e-06
   resume: null
   stage2:
-    enabled: true
-    epochs: 200
+    enabled: false
+    epochs: 0
     lr0: 0.001
     lrf: 0.01
     patience: 50
@@ -138,8 +141,8 @@ loss:
     v2_route_target_temperature: 0.05
 
 output:
-  project: runs/ga_monoalign_pcgrad_v1
-  name: yolo26m_UAVCB_GMLSv2_MonoAlignPCGrad_OfficialYOLO26mPT_seed0_DDPMetricFix
+  project: runs/ga_monoalign_pcgrad_100e
+  name: yolo26m_UAVCB_OfficialPT_MonoKD_PCGrad_100e_Step_seed0_v1_dualTeacherInit_noBHLR
 
 dual_teachers:
   rgb_weights: /mnt/sda/taochangyong/Projects/Model/YOLO-tcy_v5/runs/base/yolo26m-RGB_640_300e_bs16_seed0_new/weights/best.pt
@@ -152,8 +155,10 @@ monoalign:
   pcgrad_enabled: true
   alignment_val_images: 96
   mono_val_every: 5
-  minimum_stage1_epochs: 130
+  minimum_stage1_epochs: 100
   save_joint_gamma: 0.1
-  student_mode: official_yolo_pretrained
+  student_mode: dual_teacher_initialized
+  init_from_teachers: true
   teacher_kd_type: target_roi_attention
   pcgrad_type: feature_boundary_projection
+  schedule_mode: single100_step_v1

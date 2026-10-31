@@ -90,6 +90,26 @@ class AlignmentProtectedStudent(nn.Module):
 
     def schedule(self):
         """Piecewise weights follow requested 300+200 training protocol."""
+        # Optional controlled ablation: start mono gently, leave KD/stage2 unchanged.
+        mode = self.cfg.get('monoalign', {}).get('schedule_mode', 'original')
+        # Short-run mode: early mono and gradual KD.
+        if mode == 'single100_step_v1' and self.stage == 'stage1':
+            e = int(self.epoch)
+            mono = 0.10 * min(1.0, max(0.0, e / 30.0))
+            kd = 0.0 if e <= 20 else 0.03 * min(1.0, (e - 20) / 20.0)
+            return float(mono), float(kd)
+        if mode == 'smooth_mono_v1' and self.stage == 'stage1':
+            e = self.epoch
+            mono = 0.0 if e <= 20 else 0.10 * min(1.0, (e - 20) / 40.0)
+            if e <= 60:
+                kd = 0.0
+            elif e <= 100:
+                kd = 0.05 * (e - 60) / 40.0
+            elif e <= 250:
+                kd = 0.05
+            else:
+                kd = 0.03
+            return float(mono), float(kd)
         if self.stage=='stage1':
             e=self.epoch
             if e<=60: return 0.,0.

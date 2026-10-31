@@ -1,0 +1,83 @@
+"""Original inference/validation plus native-TIR auxiliary head evaluation and IoU."""
+from __future__ import annotations
+import torch
+from torch import nn
+from engine.evaluator import validate_metrics
+from engine.runtime import preprocess_batch,autocast_context
+from .teachers import xywh2xyxy,box_iou_single
+
+
+class MonoEval(nn.Module):
+    def __init__(self,student,modality):
+        super().__init__()
+        self.nc=student.nc;self.names=student.names;self.end2end=student.end2end
+        self.model_name=student.model_name
+        self.modality=modality
+        # Do not register student as child: this avoids moving or wrapping it.
+        object.__setattr__(self,'student',student)
+
+    def forward(self,rgb,tir=None,rgb_semantic=None,**kwargs):
+        if self.modality=='rgb':
+            return self.student.aux_predict('rgb',rgb_img=rgb_semantic)
+        return self.student.aux_predict('tir',tir_img=tir)
+
+
+class TirGTLoader:
+    def __init__(self,loader):self.loader=loader
+    def __len__(self):return len(self.loader)
+    def __iter__(self):
+        for batch in self.loader:
+            b=dict(batch)
+            b['rgb_semantic_bboxes']=b['tir_bboxes']
+            b['rgb_batch_idx']=b['tir_batch_idx']
+            b['rgb_cls']=b['tir_cls']
+            yield b
+
+
+@torch.no_grad()
+def mono_metrics(student,loader,device,amp):
+    rgb=validate_metrics(MonoEval(student,'rgb'),loader,device,amp=amp,
+                         conf_thres=.001,iou_thres=.70,max_det=300,preview_num=0)
+    tir=validate_metrics(MonoEval(student,'tir'),TirGTLoader(loader),device,amp=amp,
+                         conf_thres=.001,iou_thres=.70,max_det=300,preview_num=0)
+    return {'rgb_only_'+k:float(v) for k,v in rgb.items() if isinstance(v,(int,float))} | \
+           {'tir_only_'+k:float(v) for k,v in tir.items() if isinstance(v,(int,float))}
+
+
+@torch.no_grad()
+def geometry_iou(student,loader,device,amp=False,max_images=96):
+    student.eval()
+    results=[];n=0;zero=0;gate_total=0;gate_dmls=0
+    for batch in loader:
+        batch=preprocess_batch(batch,device)
+        with autocast_context(device,amp):
+            preds=student.core.predict(batch['rgb_img'],batch['tir_img'],
+                rgb_semantic=batch['rgb_semantic_img'],return_features=True,
+                return_alignment_debug=True)
+        geom=preds['alignment_info']
+        dbgs=geom.get('scale_debug', {}) or {}
+        scale=int(getattr(student.core, 'gtga_reference_scale', 3))
+        dbg=dbgs.get(scale, dbgs.get(str(scale), geom))
+        choice=dbg.get('gmls_v2_choose_dmls', None)
+        if torch.is_tensor(choice):
+            gate_total += int(choice.numel())
+            gate_dmls += int(choice.detach().bool().sum().item())
+        s=geom['sampling_scale'].float()
+        t=geom['sampling_translation'].float()
+        bsz=batch['rgb_semantic_img'].shape[0]
+        for i in range(bsz):
+            rb=batch['rgb_semantic_bboxes'][batch['rgb_batch_idx']==i]
+            tb=batch['tir_bboxes'][batch['tir_batch_idx']==i]
+            if rb.shape[0]!=1 or tb.shape[0]!=1:continue
+            scale=s[i].flatten()[:2].clamp_min(1e-6)
+            shift=t[i].flatten()[:2]
+            mapped=torch.cat(((tb[0,:2]-shift)/scale,tb[0,2:]/scale))
+            x=xywh2xyxy(mapped[None])[0];y=xywh2xyxy(rb)
+            iou=float(box_iou_single(x,y).max().item());results.append(iou)
+            zero+=int(iou<=1e-12)
+        n+=bsz
+        if n>=max_images:break
+    return {'align_iou':sum(results)/len(results) if results else float('nan'),
+            'align_zero':zero,'align_pairs':len(results),'align_images_scanned':n,
+            'align_dmls_pick_rate':gate_dmls/gate_total if gate_total else float('nan'),
+            'align_gate_images':gate_total}

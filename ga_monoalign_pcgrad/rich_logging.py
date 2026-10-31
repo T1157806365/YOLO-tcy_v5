@@ -106,6 +106,9 @@ def epoch_report(*, stage, epoch, nepoch, trainloss, lr, logitems, metric,
         'Val geometry (QUICK SUBSET, not full split): '
         f'AlignIoU={_f(metric,"align_iou",6)} '
         f'zero={zero} scanned_images={int(metric.get("align_images_scanned",0))}',
+        'Val route (QUICK SUBSET): '
+        f'DMLS picked={_f(metric,"align_dmls_pick_rate",4)} '
+        f'scanned_images={int(metric.get("align_gate_images",0))}',
         _aux_line('RGB-only', 'rgb_only', metric, epoch, mono_interval, wm, latest_mono),
         _aux_line('TIR-only', 'tir_only', metric, epoch, mono_interval, wm, latest_mono),
         'Teacher: '

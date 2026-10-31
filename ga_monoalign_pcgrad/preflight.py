@@ -47,11 +47,14 @@ def main():
     if a.shape!=b.shape:raise AssertionError('Predictions mismatch shape')
     delta=(a.float()-b.float()).abs().max().item()
     if delta>1e-6:raise AssertionError(f'Inference changed: {delta}')
-    for key in ('coarse_offset_gmls','coarse_offset_dmls','coarse_offset_gmls_v2',
-                'gmls_v2_choose_dmls','sampling_scale','sampling_translation'):
-        x=original['alignment_info'][key];y=wrapped['alignment_info'][key]
-        if x is None or y is None:raise AssertionError(f'GMLS-v2 debug missing {key}')
-        if not torch.equal(x,y):raise AssertionError(f'Geometry changed {key}')
+    if net.core.alignment_enabled:
+        for key in ('coarse_offset_gmls','coarse_offset_dmls','coarse_offset_gmls_v2',
+                    'gmls_v2_choose_dmls','sampling_scale','sampling_translation'):
+            x=original['alignment_info'][key];y=wrapped['alignment_info'][key]
+            if x is None or y is None:raise AssertionError(f'GMLS-v2 debug missing {key}')
+            if not torch.equal(x,y):raise AssertionError(f'Geometry changed {key}')
+    elif original['alignment_info'].get('enabled') is not False:
+        raise AssertionError('noAlign unexpectedly returned alignment geometry')
     print('[PASS] Wrapped inference exactly matches original core predictions and geometry')
     net.attach_teachers(device)
     net.set_progress('stage1',101)
@@ -62,7 +65,7 @@ def main():
     def has_grad(mod):
         return any(p.grad is not None and bool(torch.isfinite(p.grad).all()) and
                    bool(p.grad.detach().abs().sum()>0) for p in mod.parameters() if p.requires_grad)
-    if not has_grad(net.core.alignment.unit):raise AssertionError('GMLS-v2 not updated')
+    if net.core.alignment_enabled and not has_grad(net.core.alignment.unit):raise AssertionError('GMLS-v2 not updated')
     if not has_grad(net.core.tir_backbone):raise AssertionError('TIR backbone not updated')
     if not has_grad(net.aux_rgb):raise AssertionError('RGB auxiliary head no gradient')
     if not has_grad(net.aux_tir):raise AssertionError('TIR auxiliary head no gradient')
