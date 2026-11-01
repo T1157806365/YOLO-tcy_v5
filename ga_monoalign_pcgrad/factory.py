@@ -15,8 +15,11 @@ def validate_cfg(cfg,need_teachers=False):
     if (m.get('variant')!='rlsfa_gtga_centered_bhlr_v2' or
         type(m.get('pretrained')) is not bool or m.get('fusion')!='add'):
         raise ValueError('Keep original variant / add fusion; pretrained must be YAML boolean true or false')
-    if a.get('apply_scales')!=[3,4,5] or b.get('scales')!=[3]:
-        raise ValueError('Keep the original P3/P4/P5 alignment and BHLR-P3 scale specifications')
+    # BHLR_P345_COMPAT_V1: preserve alignment P3/P4/P5, permit BHLR-P3 or P345.
+    # A disabled BHLR keeps the original [3] metadata, as in other ablations.
+    bhlr_scales = b.get('scales', [3])
+    if a.get('apply_scales') != [3, 4, 5] or bhlr_scales not in ([3], [3, 4, 5]):
+        raise ValueError('Require alignment scales [3,4,5] and BHLR scales [3] or [3,4,5]')
     if any(float(l.get(k,0))<=0 for k in ('lambda_alignment','lambda_v2_quality','lambda_v2_route')):
         raise ValueError('Original geometry/quality/route losses must stay enabled')
     if tr.get('resume') or tr.get('init_student_weights'):

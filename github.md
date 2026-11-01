@@ -22,4 +22,4 @@ git -c http.version=HTTP/1.1 push -u origin backup-20261031-teacher
 timeout 15 ssh -T git@github.com
 # 如果 SSH 认证成功，直接推送：
 git push -u git@github.com:T1157806365/YOLO-tcy_v5.git \
-  backup-20261031-teacher
+  backup-20261031-teacher100
