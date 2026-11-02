@@ -1,0 +1,194 @@
+nohup: 忽略输入
+[AGHR-DDP] GPUs= [5, 6] ENTRYPOINT=aghr_qnet.train
+[AGHR-PRECISION] CUDA autocast=BF16; GradScaler=DISABLED; nonfinite grad=FATAL; zero optimizer update=FATAL
+[AGHR-WORKER] custom model/evaluator enabled; WORLD_SIZE=2 RANK=0
+[AGHR-WORKER] custom model/evaluator enabled; WORLD_SIZE=2 RANK=1
+
+============================================================
+RGB-T Paired Dataset
+============================================================
+Split        : train
+RGB YAML     : /mnt/sda/taochangyong/Projects/Model/YOLO-tcy_v5/configs/datasets/UAV-CB-RGB.yaml
+TIR YAML     : /mnt/sda/taochangyong/Projects/Model/YOLO-tcy_v5/configs/datasets/UAV-CB-TIR.yaml
+RGB images   : 2032
+TIR images   : 2032
+Pairs        : 2032
+Missing TIR  : 0
+Missing RGB  : 0
+Pair mode    : relative
+RGB imgsz    : (1920, 1920)
+TIR imgsz    : (640, 640)
+TIR channels : 3
+Classes      : 1
+============================================================
+
+RSD-T RGB high: (1920, 1920)
+RSD-T RGB semantic: (640, 640)
+
+============================================================
+RGB-T Paired Dataset
+============================================================
+Split        : train
+RGB YAML     : /mnt/sda/taochangyong/Projects/Model/YOLO-tcy_v5/configs/datasets/UAV-CB-RGB.yaml
+TIR YAML     : /mnt/sda/taochangyong/Projects/Model/YOLO-tcy_v5/configs/datasets/UAV-CB-TIR.yaml
+RGB images   : 2032
+TIR images   : 2032
+Pairs        : 2032
+Missing TIR  : 0
+Missing RGB  : 0
+Pair mode    : relative
+RGB imgsz    : (1920, 1920)
+TIR imgsz    : (640, 640)
+TIR channels : 3
+Classes      : 1
+============================================================
+
+RSD-T RGB high: (1920, 1920)
+RSD-T RGB semantic: (640, 640)
+
+============================================================
+RGB-T Paired Dataset
+============================================================
+Split        : val
+RGB YAML     : /mnt/sda/taochangyong/Projects/Model/YOLO-tcy_v5/configs/datasets/UAV-CB-RGB.yaml
+TIR YAML     : /mnt/sda/taochangyong/Projects/Model/YOLO-tcy_v5/configs/datasets/UAV-CB-TIR.yaml
+RGB images   : 679
+TIR images   : 679
+Pairs        : 679
+Missing TIR  : 0
+Missing RGB  : 0
+Pair mode    : relative
+RGB imgsz    : (1920, 1920)
+TIR imgsz    : (640, 640)
+TIR channels : 3
+Classes      : 1
+============================================================
+
+RSD-T RGB high: (1920, 1920)
+RSD-T RGB semantic: (640, 640)
+Overriding model.yaml nc=80 with nc=1
+Overriding model.yaml nc=80 with nc=1
+[TEACHER-INIT PASS] RGB full backbone+neck+head: 768 state keys, 21,774,430 parameters
+[TEACHER-INIT PASS] RGB full backbone+neck+head: 768 state keys, 21,774,430 parameters
+[TEACHER-INIT PASS] RGB auxiliary neck+head: 468 state keys, 11,422,238 parameters
+[TEACHER-INIT PASS] RGB auxiliary neck+head: 468 state keys, 11,422,238 parameters
+[TEACHER-INIT PASS] TIR backbone: 300 state keys, 10,352,192 parameters
+[TEACHER-INIT PASS] TIR backbone: 300 state keys, 10,352,192 parameters
+[TEACHER-INIT PASS] TIR auxiliary neck+head: 468 state keys, 11,422,238 parameters
+[TEACHER-INIT DONE] Student initialized from the two UAV-CB teachers. GMLS/DMLS, BHLR, fusion remain independently initialized.
+[TEACHER-INIT PASS] TIR auxiliary neck+head: 468 state keys, 11,422,238 parameters
+[TEACHER-INIT DONE] Student initialized from the two UAV-CB teachers. GMLS/DMLS, BHLR, fusion remain independently initialized.
+[AGHR-VERIFY] model=AGHRStudent hr_query=YES; query_params=290974
+[TRAIN] rank=0, device=cuda:0, batch/rank=16, global batch=32, accumulate=1, GMLS-v2 original FULL, official YOLO pretrained=True
+[TRAIN] rank=1, device=cuda:1, batch/rank=16, global batch=32, accumulate=1, GMLS-v2 original FULL, official YOLO pretrained=True
+/mnt/sda/taochangyong/Projects/Model/YOLO-tcy_v5/aghr_qnet/train.py:32: FutureWarning: `torch.cuda.amp.GradScaler(args...)` is deprecated. Please use `torch.amp.GradScaler('cuda', args...)` instead.
+  return torch.cuda.amp.GradScaler(enabled=False)
+
+==============================================================================================
+stage1 training | GA-MonoAlign-PCGrad (GMLS-v2 preserved)
+==============================================================================================
+epochs: 100 | lr0: 0.005 | lrf: 0.01 | patience: 50
+RGB high/semantic/TIR: 1920/640/640
+GMLS=True | GMLS-v2 routing=True | Fine=True | BHLR=False
+Official YOLO pretrained=True | student warm start=None | student resume=None
+Train: box / cls / dfl + original alignment + auxiliary detection + teacher KD
+Val: fusion AP every epoch; RGB/TIR auxiliary AP periodically; geometry on subset
+==============================================================================================
+/mnt/sda/taochangyong/Projects/Model/YOLO-tcy_v5/aghr_qnet/train.py:32: FutureWarning: `torch.cuda.amp.GradScaler(args...)` is deprecated. Please use `torch.amp.GradScaler('cuda', args...)` instead.
+  return torch.cuda.amp.GradScaler(enabled=False)
+stage1 1/100:   0%|          | 0/64 [00:00<?, ?it/s]stage1   1/100 GPU_mem=40.32G box=1.0908 cls=0.3751 dfl=N/A Instances=16 Size=1920/640:   0%|          | 0/64 [00:06<?, ?it/s]
+[rank0]: Traceback (most recent call last):
+[rank0]:   File "/mnt/sda/taochangyong/.conda/envs/tcy/lib/python3.10/runpy.py", line 196, in _run_module_as_main
+[rank0]:     return _run_code(code, main_globals, None,
+[rank0]:   File "/mnt/sda/taochangyong/.conda/envs/tcy/lib/python3.10/runpy.py", line 86, in _run_code
+[rank0]:     exec(code, run_globals)
+[rank0]:   File "/mnt/sda/taochangyong/Projects/Model/YOLO-tcy_v5/aghr_qnet/train.py", line 136, in <module>
+[rank0]:     main()
+[rank0]:   File "/mnt/sda/taochangyong/Projects/Model/YOLO-tcy_v5/aghr_qnet/train.py", line 132, in main
+[rank0]:     base_train.main()
+[rank0]:   File "/mnt/sda/taochangyong/Projects/Model/YOLO-tcy_v5/ga_monoalign_pcgrad/train.py", line 268, in main
+[rank0]:     one=run_stage(net,cfg,trainloader,valloader,device,output,'stage1',int(trcfg['epochs']),
+[rank0]:   File "/mnt/sda/taochangyong/Projects/Model/YOLO-tcy_v5/ga_monoalign_pcgrad/train.py", line 141, in run_stage
+[rank0]:     if clip>0:torch.nn.utils.clip_grad_norm_(net.parameters(),clip)
+[rank0]:   File "/mnt/sda/taochangyong/Projects/Model/YOLO-tcy_v5/aghr_qnet/train.py", line 41, in checked_clip
+[rank0]:     return old_clip(parameters, max_norm, *args, **kwargs)
+[rank0]:   File "/mnt/sda/taochangyong/.conda/envs/tcy/lib/python3.10/site-packages/torch/nn/utils/clip_grad.py", line 34, in _no_grad_wrapper
+[rank0]:     return func(*args, **kwargs)
+[rank0]:   File "/mnt/sda/taochangyong/.conda/envs/tcy/lib/python3.10/site-packages/torch/nn/utils/clip_grad.py", line 215, in clip_grad_norm_
+[rank0]:     total_norm = _get_total_norm(grads, norm_type, error_if_nonfinite, foreach)
+[rank0]:   File "/mnt/sda/taochangyong/.conda/envs/tcy/lib/python3.10/site-packages/torch/nn/utils/clip_grad.py", line 34, in _no_grad_wrapper
+[rank0]:     return func(*args, **kwargs)
+[rank0]:   File "/mnt/sda/taochangyong/.conda/envs/tcy/lib/python3.10/site-packages/torch/nn/utils/clip_grad.py", line 102, in _get_total_norm
+[rank0]:     raise RuntimeError(
+[rank0]: RuntimeError: The total norm of order 2.0 for gradients from `parameters` is non-finite, so it cannot be clipped. To disable this error and scale the gradients by the non-finite norm anyway, set `error_if_nonfinite=False`
+[rank1]: Traceback (most recent call last):
+[rank1]:   File "/mnt/sda/taochangyong/.conda/envs/tcy/lib/python3.10/runpy.py", line 196, in _run_module_as_main
+[rank1]:     return _run_code(code, main_globals, None,
+[rank1]:   File "/mnt/sda/taochangyong/.conda/envs/tcy/lib/python3.10/runpy.py", line 86, in _run_code
+[rank1]:     exec(code, run_globals)
+[rank1]:   File "/mnt/sda/taochangyong/Projects/Model/YOLO-tcy_v5/aghr_qnet/train.py", line 136, in <module>
+[rank1]:     main()
+[rank1]:   File "/mnt/sda/taochangyong/Projects/Model/YOLO-tcy_v5/aghr_qnet/train.py", line 132, in main
+[rank1]:     base_train.main()
+[rank1]:   File "/mnt/sda/taochangyong/Projects/Model/YOLO-tcy_v5/ga_monoalign_pcgrad/train.py", line 268, in main
+[rank1]:     one=run_stage(net,cfg,trainloader,valloader,device,output,'stage1',int(trcfg['epochs']),
+[rank1]:   File "/mnt/sda/taochangyong/Projects/Model/YOLO-tcy_v5/ga_monoalign_pcgrad/train.py", line 141, in run_stage
+[rank1]:     if clip>0:torch.nn.utils.clip_grad_norm_(net.parameters(),clip)
+[rank1]:   File "/mnt/sda/taochangyong/Projects/Model/YOLO-tcy_v5/aghr_qnet/train.py", line 41, in checked_clip
+[rank1]:     return old_clip(parameters, max_norm, *args, **kwargs)
+[rank1]:   File "/mnt/sda/taochangyong/.conda/envs/tcy/lib/python3.10/site-packages/torch/nn/utils/clip_grad.py", line 34, in _no_grad_wrapper
+[rank1]:     return func(*args, **kwargs)
+[rank1]:   File "/mnt/sda/taochangyong/.conda/envs/tcy/lib/python3.10/site-packages/torch/nn/utils/clip_grad.py", line 215, in clip_grad_norm_
+[rank1]:     total_norm = _get_total_norm(grads, norm_type, error_if_nonfinite, foreach)
+[rank1]:   File "/mnt/sda/taochangyong/.conda/envs/tcy/lib/python3.10/site-packages/torch/nn/utils/clip_grad.py", line 34, in _no_grad_wrapper
+[rank1]:     return func(*args, **kwargs)
+[rank1]:   File "/mnt/sda/taochangyong/.conda/envs/tcy/lib/python3.10/site-packages/torch/nn/utils/clip_grad.py", line 102, in _get_total_norm
+[rank1]:     raise RuntimeError(
+[rank1]: RuntimeError: The total norm of order 2.0 for gradients from `parameters` is non-finite, so it cannot be clipped. To disable this error and scale the gradients by the non-finite norm anyway, set `error_if_nonfinite=False`
+W1102 17:20:40.098000 1584908 site-packages/torch/distributed/elastic/multiprocessing/api.py:897] Sending process 1584925 closing signal SIGTERM
+E1102 17:20:40.813000 1584908 site-packages/torch/distributed/elastic/multiprocessing/api.py:869] failed (exitcode: 1) local_rank: 0 (pid: 1584924) of binary: /mnt/sda/taochangyong/.conda/envs/tcy/bin/python
+Traceback (most recent call last):
+  File "/mnt/sda/taochangyong/.conda/envs/tcy/lib/python3.10/runpy.py", line 196, in _run_module_as_main
+    return _run_code(code, main_globals, None,
+  File "/mnt/sda/taochangyong/.conda/envs/tcy/lib/python3.10/runpy.py", line 86, in _run_code
+    exec(code, run_globals)
+  File "/mnt/sda/taochangyong/.conda/envs/tcy/lib/python3.10/site-packages/torch/distributed/run.py", line 922, in <module>
+    main()
+  File "/mnt/sda/taochangyong/.conda/envs/tcy/lib/python3.10/site-packages/torch/distributed/elastic/multiprocessing/errors/__init__.py", line 355, in wrapper
+    return f(*args, **kwargs)
+  File "/mnt/sda/taochangyong/.conda/envs/tcy/lib/python3.10/site-packages/torch/distributed/run.py", line 918, in main
+    run(args)
+  File "/mnt/sda/taochangyong/.conda/envs/tcy/lib/python3.10/site-packages/torch/distributed/run.py", line 909, in run
+    elastic_launch(
+  File "/mnt/sda/taochangyong/.conda/envs/tcy/lib/python3.10/site-packages/torch/distributed/launcher/api.py", line 138, in __call__
+    return launch_agent(self._config, self._entrypoint, list(args))
+  File "/mnt/sda/taochangyong/.conda/envs/tcy/lib/python3.10/site-packages/torch/distributed/launcher/api.py", line 269, in launch_agent
+    raise ChildFailedError(
+torch.distributed.elastic.multiprocessing.errors.ChildFailedError: 
+============================================================
+aghr_qnet.train FAILED
+------------------------------------------------------------
+Failures:
+  <NO_OTHER_FAILURES>
+------------------------------------------------------------
+Root Cause (first observed failure):
+[0]:
+  time      : 2026-11-02_17:20:40
+  host      : user-X640-G50
+  rank      : 0 (local_rank: 0)
+  exitcode  : 1 (pid: 1584924)
+  error_file: <N/A>
+  traceback : To enable traceback see: https://pytorch.org/docs/stable/elastic/errors.html
+============================================================
+Traceback (most recent call last):
+  File "/mnt/sda/taochangyong/.conda/envs/tcy/lib/python3.10/runpy.py", line 196, in _run_module_as_main
+    return _run_code(code, main_globals, None,
+  File "/mnt/sda/taochangyong/.conda/envs/tcy/lib/python3.10/runpy.py", line 86, in _run_code
+    exec(code, run_globals)
+  File "/mnt/sda/taochangyong/Projects/Model/YOLO-tcy_v5/aghr_qnet/train.py", line 136, in <module>
+    main()
+  File "/mnt/sda/taochangyong/Projects/Model/YOLO-tcy_v5/aghr_qnet/train.py", line 118, in main
+    subprocess.run(command, env=env, check=True)
+  File "/mnt/sda/taochangyong/.conda/envs/tcy/lib/python3.10/subprocess.py", line 526, in run
+    raise CalledProcessError(retcode, process.args,
+subprocess.CalledProcessError: Command '['/mnt/sda/taochangyong/.conda/envs/tcy/bin/python', '-m', 'torch.distributed.run', '--standalone', '--nproc_per_node=2', '-m', 'aghr_qnet.train', '--cfg', '/mnt/sda/taochangyong/Projects/Model/YOLO-tcy_v5/configs/experiments/aghr_qnet/uavcb_yolo26m_aghr_query_dualteacher_100e_BF16Safe.yaml']' returned non-zero exit status 1.
