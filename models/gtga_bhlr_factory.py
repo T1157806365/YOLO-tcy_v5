@@ -709,6 +709,10 @@ def build_model_from_config(
                     True,
                 )
             ),
+            # ALIGN_BHLR_GUIDANCE_BRIDGE_V1: preserve legacy when field absent.
+            bhlr_guidance_grad_scale=float(
+                bhlr_cfg.get("guidance_grad_scale", 1.0)
+            ),
             verbose=verbose,
         )
 

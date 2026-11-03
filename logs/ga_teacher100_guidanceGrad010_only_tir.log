@@ -1,0 +1,19 @@
+nohup: 忽略输入
+Traceback (most recent call last):
+  File "/mnt/sda/taochangyong/.conda/envs/tcy/lib/python3.10/runpy.py", line 196, in _run_module_as_main
+    return _run_code(code, main_globals, None,
+  File "/mnt/sda/taochangyong/.conda/envs/tcy/lib/python3.10/runpy.py", line 86, in _run_code
+    exec(code, run_globals)
+  File "/mnt/sda/taochangyong/Projects/Model/YOLO-tcy_v5/ga_monoalign_pcgrad/train.py", line 263, in <module>
+    if __name__=='__main__':main()
+  File "/mnt/sda/taochangyong/Projects/Model/YOLO-tcy_v5/ga_monoalign_pcgrad/train.py", line 206, in main
+    cfg=validate_cfg(load_config(args.cfg),need_teachers=True)
+  File "/mnt/sda/taochangyong/Projects/Model/YOLO-tcy_v5/ga_monoalign_pcgrad/factory.py", line 34, in validate_cfg
+    p=Path(cfg['dual_teachers'][t]).expanduser()
+  File "/mnt/sda/taochangyong/.conda/envs/tcy/lib/python3.10/pathlib.py", line 960, in __new__
+    self = cls._from_parts(args)
+  File "/mnt/sda/taochangyong/.conda/envs/tcy/lib/python3.10/pathlib.py", line 594, in _from_parts
+    drv, root, parts = self._parse_args(args)
+  File "/mnt/sda/taochangyong/.conda/envs/tcy/lib/python3.10/pathlib.py", line 578, in _parse_args
+    a = os.fspath(a)
+TypeError: expected str, bytes or os.PathLike object, not NoneType

@@ -13,6 +13,7 @@ from torch.nn import functional as F
 from models.rgbt_model import get_layer_input
 from ultralytics.utils.loss import E2ELoss, v8DetectionLoss
 from .teachers import DualTeachers
+from .bhlr_loc_aux import BHLRP3LocalizationHead, localization_loss
 
 
 class NativeDetectionHead(nn.Module):
@@ -59,6 +60,14 @@ class AlignmentProtectedStudent(nn.Module):
         # Teachers are only in-memory training utilities; exclude them from
         # student parameters, optimizer and saved checkpoint.
         object.__setattr__(self,'_teachers',None)
+        # BHLR_LOCP3_PATCH_V1: optional TRAINING-ONLY auxiliary head.
+        loc_cfg = cfg.get('bhlr_loc', {}) or {}
+        self.bhlr_loc_head = (
+            BHLRP3LocalizationHead(
+                in_channels=int(core.bhlr.adapters[str(int(core.scale_to_index[3]))].rgb_channels),
+                hidden_channels=int(loc_cfg.get('hidden_channels', 24)),
+            ) if bool(loc_cfg.get('enabled', False)) else None
+        )
 
     def set_progress(self,stage,epoch):
         self.stage=str(stage);self.epoch=int(epoch)
@@ -205,9 +214,28 @@ class AlignmentProtectedStudent(nn.Module):
         if core.criterion is None:core.criterion=core.init_criterion()
         bsz=batch['rgb_semantic_img'].shape[0]
         masks=core.build_alignment_valid_masks_from_batch(batch)
-        features=core.forward_features(batch['rgb_img'],batch['tir_img'],
-             rgb_semantic=batch['rgb_semantic_img'],rgb_valid_mask=masks[0],
-             tir_valid_mask=masks[1],return_alignment_debug=True)
+        # BHLR_LOCP3_PATCH_V1: capture ONE P3 feature, not large debug tensors.
+        loc_adapter = None
+        if self.bhlr_loc_head is not None:
+            if not core.bhlr_enabled or core.bhlr is None:
+                raise RuntimeError('bhlr_loc.enabled requires model.bhlr.enabled=true')
+            layer_id = int(core.scale_to_index[3])  # adapter keys are backbone LAYER IDs
+            loc_adapter = core.bhlr.adapters[str(layer_id)]
+            loc_adapter._bhlr_loc_feature = None
+            loc_adapter._bhlr_loc_capture = True
+        try:
+            features=core.forward_features(batch['rgb_img'],batch['tir_img'],
+                 rgb_semantic=batch['rgb_semantic_img'],rgb_valid_mask=masks[0],
+                 tir_valid_mask=masks[1],return_alignment_debug=True)
+        finally:
+            if loc_adapter is not None:
+                loc_adapter._bhlr_loc_capture = False
+        loc_detail = None
+        if loc_adapter is not None:
+            loc_detail = loc_adapter._bhlr_loc_feature
+            loc_adapter._bhlr_loc_feature = None  # avoid keeping graph on the module
+            if loc_detail is None:
+                raise RuntimeError('BHLR P3 usable_detail was not captured')
         main_pred=core.forward_head(features['fused_backbone'])
         det_vec,det_items=core.criterion(main_pred,self._native(batch,'rgb'))
         det=det_vec.sum()
@@ -250,8 +278,35 @@ class AlignmentProtectedStudent(nn.Module):
         diags=self._pcgrad_feature_hooks(align,mono+kd,rg,tg,
                     enabled=bool(self.cfg['monoalign'].get('pcgrad_enabled',True)) and wm>0,
                     backward_scale=float(getattr(self, '_pcgrad_backward_scale', 1.0)))
+        # BHLR_LOCP3_PATCH_V1: direct positioning supervision on selected
+        # high-resolution detail. No new inference branch or 1920 backbone.
+        loc = det * 0.0
+        loc_weight = 0.0
+        loc_stats = {}
+        if self.bhlr_loc_head is not None:
+            opts = self.cfg['bhlr_loc']
+            loc_prediction = self.bhlr_loc_head(loc_detail)
+            loc_raw, loc_stats = localization_loss(
+                loc_prediction,
+                batch['rgb_semantic_bboxes'],
+                batch['rgb_batch_idx'],
+                heatmap_weight=float(opts.get('heatmap_weight', 1.0)),
+                offset_weight=float(opts.get('offset_weight', 1.0)),
+                size_weight=float(opts.get('size_weight', 0.25)),
+                gaussian_sigma=float(opts.get('gaussian_sigma', 1.5)),
+                negative_weight=float(opts.get('negative_weight', 0.25)),
+            )
+            warmup = max(1, int(opts.get('warmup_epochs', 10)))
+            loc_weight = float(opts.get('weight', 0.02)) * min(1.0, self.epoch / warmup)
+            loc = loc_raw * loc_weight * bsz  # same batch scaling as align/mono/KD
+            logs.update({
+                'bhlr_loc_raw_loss': loc_raw.detach(),
+                'bhlr_loc_weighted_loss': loc.detach() / bsz,
+                'bhlr_loc_weight': loc_weight,
+                **{('bhlr_loc_' + k): v for k, v in loc_stats.items()},
+            })
         # Scalar losses packed in a vector for existing trainer-style logs.
-        total=torch.stack((det,align,mono,kd))
+        total=torch.stack((det,align,mono,kd,loc))
         logs.update({'rgb_aux_loss':lr.sum().detach()/bsz,
                      'tir_aux_loss':lt.sum().detach()/bsz,
                      'det_raw_loss':det.detach()/bsz,

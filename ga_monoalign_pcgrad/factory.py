@@ -4,6 +4,7 @@ from pathlib import Path
 import torch
 from models.gtga_bhlr_factory import build_model_from_config
 from .model import AlignmentProtectedStudent
+from aghlr.student import AGHLRStudent
 
 
 def validate_cfg(cfg,need_teachers=False):
@@ -49,7 +50,10 @@ def build(cfg,device='cpu',load_pretrained=True):
             raise AssertionError('Original GMLS-v2 implementation is not active')
     elif core.alignment is not None:
         raise AssertionError('noAlign unexpectedly instantiated an alignment unit')
-    student = AlignmentProtectedStudent(core, cfg)
+    # AGHLR_REGP3_INSTALL_V1
+    student = (AGHLRStudent(core, cfg)
+               if bool((cfg.get('aghlr', {}) or {}).get('enabled', False))
+               else AlignmentProtectedStudent(core, cfg))
     if load_pretrained and bool(cfg.get('monoalign', {}).get('init_from_teachers', False)):
         from .teacher_init import initialize_from_dual_teachers
         initialize_from_dual_teachers(student, cfg)

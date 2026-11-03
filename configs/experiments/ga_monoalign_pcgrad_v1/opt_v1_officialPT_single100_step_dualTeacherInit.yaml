@@ -4,14 +4,14 @@ traincc: |
   mkdir -p logs pid
   nohup python -u -m ga_monoalign_pcgrad.train \
     --cfg configs/experiments/ga_monoalign_pcgrad_v1/opt_v1_officialPT_single100_step_dualTeacherInit.yaml \
-    > logs/ga_dualTeacherInit_100e_new.log 2>&1 &
-  echo $! > pid/ga_dualTeacherInit_100e_new.pid
-  tail -n 5 -f logs/ga_dualTeacherInit_100e_new.log
+    > logs/ga_dualTeacherInit_200e_new.log 2>&1 &
+  echo $! > pid/ga_dualTeacherInit_200e_new.pid
+  tail -n 5 -f logs/ga_dualTeacherInit_200e_new.log
 
   conda activate tcy
   cd /mnt/sda/taochangyong/Projects/Model/YOLO-tcy_v5
   python -m ga_monoalign_pcgrad.val \
-    --weights /mnt/sda/taochangyong/Projects/Model/YOLO-tcy_v5/runs/ga_monoalign_pcgrad_100e/yolo26m_UAVCB_OfficialPT_MonoKD_PCGrad_100e_Step_seed0_v1_dualTeacherInit_new/weights/best.pt \
+    --weights /mnt/sda/taochangyong/Projects/Model/YOLO-tcy_v5/runs/ga_monoalign_pcgrad_200e/yolo26m_UAVCB_OfficialPT_MonoKD_PCGrad_200e_Step_seed0_v1_dualTeacherInit_new/weights/best.pt \
     --split test \
     --device 1 \
     --batch 4 \
@@ -69,8 +69,6 @@ model:
     enabled: true
     scales:
     - 3
-    - 4
-    - 5
     high_to_semantic_ratio: 3
     detail_channels: 48
     stem_channels: 16
@@ -85,11 +83,11 @@ data:
   tir_imgsz: 640
   pair_mode: relative
 train:
-  device: 5,6
+  device: 0,4
   batch: 32
   batch_mode: global
   workers: 4
-  epochs: 100
+  epochs: 200
   optimizer: SGD
   lr0: 0.005
   scheduler: multistep
@@ -143,8 +141,8 @@ loss:
     v2_quality_advantage: 0.05
     v2_route_target_temperature: 0.05
 output:
-  project: runs/ga_monoalign_pcgrad_100e
-  name: yolo26m_UAVCB_OfficialPT_MonoKD_PCGrad_100e_Step_seed0_v1_dualTeacherInit_new
+  project: runs/ga_monoalign_pcgrad_200e
+  name: yolo26m_UAVCB_OfficialPT_MonoKD_PCGrad_200e_Step_seed0_v1_dualTeacherInit_new
 dual_teachers:
   rgb_weights: /mnt/sda/taochangyong/Projects/Model/YOLO-tcy_v5/runs/base/yolo26m-RGB_640_300e_bs16_seed0_new/weights/best.pt
   tir_weights: /mnt/sda/taochangyong/Projects/Model/YOLO-tcy_v5/runs/base/yolo26m-TIR_640_300e_bs16_seed0_new/weights/best.pt

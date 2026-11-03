@@ -995,6 +995,10 @@ class BHLRScaleAdapter(nn.Module):
             self.gamma_raw
         )
 
+        # BHLR_LOCP3_PATCH_V1: training-only capture; never changes the forward output.
+        if getattr(self, '_bhlr_loc_capture', False):
+            self._bhlr_loc_feature = usable_detail
+
         enhanced_rgb = (
             rgb_feat
             + gamma
