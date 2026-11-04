@@ -1437,13 +1437,9 @@ class RLSFAGTGAScaleUnit(nn.Module):
         valid = g['rgb_valid_mask'].clamp(0, 1)
         rgb_target_support = (g['rgb_local_targetness'].clamp(0, 1) * valid).clamp(0, 1)
         tir_target_support = (aligned_tir_local_target * valid).clamp(0, 1)
-        # ALIGN_BHLR_GUIDANCE_BRIDGE_V1: exact original forward, safe sqrt backward.
-        # Avoid sqrt'(0)=infinity when BHLR guides alignment.
-        _joint_product = (rgb_target_support * tir_target_support).clamp_min(0)
-        _joint_exact = torch.sqrt(_joint_product)
-        _joint_backward = torch.sqrt(_joint_product.clamp_min(1e-8))
-        joint = (_joint_exact.detach() +
-                 (_joint_backward - _joint_backward.detach())).clamp(0, 1)
+        joint = torch.sqrt(
+            (rgb_target_support * tir_target_support).clamp_min(0)
+        ).clamp(0, 1)
         multi_target_guidance = torch.cat(
             [rgb_target_support, tir_target_support, joint],
             dim=1,

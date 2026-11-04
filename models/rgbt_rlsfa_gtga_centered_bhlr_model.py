@@ -25,21 +25,6 @@ from models.modules.alignment.alignment_reliability_gate import (
 from models.modules.bhlr_v2 import MultiScaleBHLRv2
 
 
-def _scale_guidance_gradient(x: torch.Tensor, eta: float) -> torch.Tensor:
-    """ALIGN_BHLR_GUIDANCE_BRIDGE_V1: exact forward x, eta-scaled backward dx.
-
-    eta=0: original stop-gradient; eta=1: full gradient; 0<eta<1: partial.
-    This function intentionally does NOT change the forward guidance values.
-    """
-    if not 0.0 <= float(eta) <= 1.0:
-        raise ValueError(f'guidance_grad_scale must be in [0, 1], got {eta}')
-    if float(eta) == 0.0:
-        return x.detach()
-    if float(eta) == 1.0:
-        return x
-    return x.detach() + float(eta) * (x - x.detach())
-
-
 class AdaptiveCrossModalGuidanceFusion(nn.Module):
     """
     Fuse three alignment-support channels into one BHLR guidance map.
@@ -101,7 +86,6 @@ class RGBTRLSFAGTGACenteredBHLRV2DetectionModel(RGBTDetectionModel):
         guide_channels: int = 24,
         bhlr_guidance_mode: str = "alignment",
         bhlr_detach_alignment_guidance: bool = True,
-        bhlr_guidance_grad_scale: float = 1.0,
         verbose: bool = True,
         **legacy_kwargs,
     ):
@@ -237,10 +221,6 @@ class RGBTRLSFAGTGACenteredBHLRV2DetectionModel(RGBTDetectionModel):
         self.bhlr_detach_alignment_guidance = bool(
             bhlr_detach_alignment_guidance
         )
-        # ALIGN_BHLR_GUIDANCE_BRIDGE_V1: gradient only; no new parameters.
-        self.bhlr_guidance_grad_scale = float(bhlr_guidance_grad_scale)
-        if not 0.0 <= self.bhlr_guidance_grad_scale <= 1.0:
-            raise ValueError('bhlr.guidance_grad_scale must be in [0, 1]')
         self.alignment_guidance_fusion = nn.ModuleDict()
         if self.bhlr_enabled and self.bhlr_guidance_mode == "alignment":
             self.alignment_guidance_fusion = nn.ModuleDict({
@@ -597,15 +577,10 @@ class RGBTRLSFAGTGACenteredBHLRV2DetectionModel(RGBTDetectionModel):
                     tir_support = tir_support.clamp(0.0, 1.0)
                     joint_support = joint_support.clamp(0.0, 1.0)
 
-                    # ALIGN_BHLR_GUIDANCE_BRIDGE_V1: scale ONLY the gradient
-                    # from BHLR guidance back into the alignment support maps.
-                    # Forward tensor values are identical to the old code.
-                    # The separate aligned-TIR warping path stays untouched.
-                    guidance_eta = (0.0 if self.bhlr_detach_alignment_guidance
-                                    else self.bhlr_guidance_grad_scale)
-                    rgb_support = _scale_guidance_gradient(rgb_support, guidance_eta)
-                    tir_support = _scale_guidance_gradient(tir_support, guidance_eta)
-                    joint_support = _scale_guidance_gradient(joint_support, guidance_eta)
+                    if self.bhlr_detach_alignment_guidance:
+                        rgb_support = rgb_support.detach()
+                        tir_support = tir_support.detach()
+                        joint_support = joint_support.detach()
 
                     guidance_3ch = torch.cat(
                         [rgb_support, tir_support, joint_support], dim=1
