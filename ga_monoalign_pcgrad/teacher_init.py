@@ -51,6 +51,14 @@ def initialize_from_dual_teachers(student, cfg):
     Called only when factory.build(load_pretrained=True). NEVER invoked during
     checkpoint reconstruction, ensuring validation uses the saved student.
     """
+    # AGHLR_BACKBONE_ONLY_INIT_V1
+    scope = str((cfg.get('monoalign') or {}).get('teacher_init_scope', 'full')).lower().strip()
+    if scope not in ('full', 'backbone_only'):
+        raise ValueError(f'Unknown monoalign.teacher_init_scope={scope!r}. Expected full/backbone_only')
+    if scope == 'backbone_only' and not bool((cfg.get('model') or {}).get('pretrained', False)):
+        raise ValueError('Backbone-only teacher initialization requires model.pretrained: true, '
+                         'so the untouched main neck/head start from official YOLO weights')
+    print(f'[TEACHER-INIT MODE] {scope}', flush=True)
     weights = cfg['dual_teachers']
     n = int(student.core.backbone_len)
     core_layers = student.core.model
@@ -63,7 +71,16 @@ def initialize_from_dual_teachers(student, cfg):
     for i, (a, b) in enumerate(zip(core_layers, rgb_teacher.model)):
         if type(a) is not type(b) or getattr(a, 'f', None) != getattr(b, 'f', None):
             raise RuntimeError(f"RGB teacher layer {i} type/input mismatch: {type(a)} vs {type(b)}")
-    _copy_verified(core_layers, rgb_teacher.model, 'RGB full backbone+neck+head')
+    if scope == 'full':
+        _copy_verified(core_layers, rgb_teacher.model, 'RGB full backbone+neck+head')
+    else:
+        # Copy ONLY RGB Backbone. The main YOLO neck and detection head are
+        # intentionally left at their official pretrained initialization.
+        _copy_verified(
+            nn.ModuleList(list(core_layers)[:n]),
+            nn.ModuleList(list(rgb_teacher.model)[:n]),
+            'RGB backbone ONLY',
+        )
     _copy_verified(student.aux_rgb.model,
                    nn.ModuleList(list(rgb_teacher.model)[n:]), 'RGB auxiliary neck+head')
     del rgb_teacher
@@ -79,6 +96,6 @@ def initialize_from_dual_teachers(student, cfg):
     _copy_verified(student.aux_tir.model,
                    nn.ModuleList(list(tir_teacher.model)[n:]), 'TIR auxiliary neck+head')
     del tir_teacher
-    print('[TEACHER-INIT DONE] Student initialized from the two UAV-CB teachers. '
+    print(f'[TEACHER-INIT DONE] init_scope={scope}; Student initialized from two UAV-CB teachers. '
           'GMLS/DMLS, BHLR, fusion remain independently initialized.', flush=True)
     return student

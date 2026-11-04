@@ -1,0 +1,24 @@
+format: ga_module_only_v1
+output: runs/ga_module_probe/E17_A_support_off
+source_weights: runs/ga_retrain_original/yolo26m_UAVCB_OriginalAlignBHLR_DualTeacherInit_100e_seed0/weights/best.pt
+tune:
+  accumulate: 8
+  amp: true
+  batch: 4
+  bridge_eta_max: 0.0
+  bridge_warmup_epochs: 5
+  deterministic: true
+  device: '5'
+  epochs: 20
+  freeze_all_bn: true
+  grad_clip: 10.0
+  lr_alignment: 0.0001
+  lr_bhlr: 0.0003
+  lr_guidance: 0.0003
+  lrf: 0.1
+  momentum: 0.937
+  seed: 0
+  val_amp: true
+  val_batch: 4
+  weight_decay: 0.0005
+  workers: 4

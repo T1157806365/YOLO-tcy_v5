@@ -4,12 +4,12 @@ git status
 git branch --show-current 
 git remote -v 
 # 基于当前代码创建新的备份分支 
-git switch -c backup-2026113-RegP3
+git switch -c backup-2026114
 # 提交当前所有未被 .gitignore 排除的修改 
 git add . 
-git commit -m "Backup YOLO-tcy_v5 2026113-RegP3" 
+git commit -m "Backup YOLO-tcy_v5 2026114" 
 # 上传新分支到 GitHub 
-git push -u origin backup-2026113-RegP3
+git push -u origin backup-2026114
 
 
 # 重新推送
@@ -22,4 +22,4 @@ git -c http.version=HTTP/1.1 push -u origin backup-20261031-teacher
 timeout 15 ssh -T git@github.com
 # 如果 SSH 认证成功，直接推送：
 git push -u git@github.com:T1157806365/YOLO-tcy_v5.git \
-  backup-2026113
+  backup-2026113-RegP3

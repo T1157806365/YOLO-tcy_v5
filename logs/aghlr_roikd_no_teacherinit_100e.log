@@ -1,0 +1,11 @@
+nohup: 忽略输入
+Traceback (most recent call last):
+  File "/mnt/sda/taochangyong/.conda/envs/tcy/lib/python3.10/runpy.py", line 196, in _run_module_as_main
+    return _run_code(code, main_globals, None,
+  File "/mnt/sda/taochangyong/.conda/envs/tcy/lib/python3.10/runpy.py", line 86, in _run_code
+    exec(code, run_globals)
+  File "/mnt/sda/taochangyong/Projects/Model/YOLO-tcy_v5/ga_monoalign_pcgrad/train.py", line 263, in <module>
+    if __name__=='__main__':main()
+  File "/mnt/sda/taochangyong/Projects/Model/YOLO-tcy_v5/ga_monoalign_pcgrad/train.py", line 209, in main
+    raise FileExistsError(f'Output nonempty, refusing overwrite: {output}')
+FileExistsError: Output nonempty, refusing overwrite: runs/AG_HLR/yolo26m_UAVCB_AGHLR_GuidedSampling_OfficialPT_ROIKD_NoTeacherInit_100e_seed0

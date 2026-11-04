@@ -49,6 +49,9 @@ class AGHLRStudent(AlignmentProtectedStudent):
             raise RuntimeError('AGHLR release is specific to RGB high 1920 / semantic 640')
         if 320 % r:
             raise RuntimeError('subcell_ratio must divide BHLR 320 grid')
+        sampling_mode = os.environ.get(
+            'AGHLR_SAMPLING_MODE', str(opts.get('sampling_mode', 'legacy'))
+        ).strip().lower()
         self.aghlr = AGHLRP3RegAdapter(
             neck_channels=neck_channels,
             detail_channels=detail_channels,
@@ -56,6 +59,12 @@ class AGHLRStudent(AlignmentProtectedStudent):
             pre_s2d_channels=int(opts.get('pre_s2d_channels',8)),
             subcell_ratio=r,
             max_offset=float(opts.get('max_offset',0.50)),
+            sampling_mode=sampling_mode,
+            sampling_radius_p3=int(opts.get('sampling_radius_p3',2)),
+            sampling_temperature=float(opts.get('sampling_temperature',10.0)),
+            sampling_distance_penalty=float(opts.get('sampling_distance_penalty',0.75)),
+            sampling_max_shift_p3=float(opts.get('sampling_max_shift_p3',0.75)),
+            sampling_gain=float(opts.get('sampling_gain',0.75)),
         )
         self._aghlr_data = {}  # ephemeral tensors, NEVER part of checkpoint
         self._aghlr_last = {}
@@ -112,6 +121,7 @@ class AGHLRStudent(AlignmentProtectedStudent):
                          self._aghlr_data['support'],
                          self._aghlr_data['selector'])
             self._aghlr_data['delta'] = delta
+            self._aghlr_last.update(self.aghlr.last_sampling_stats)
             with torch.no_grad():
                 self._aghlr_last['delta_rms'] = float(delta.float().square().mean().sqrt().detach().cpu())
                 self._aghlr_last['delta_max_abs'] = float(delta.float().abs().max().detach().cpu())
@@ -155,4 +165,5 @@ class AGHLRStudent(AlignmentProtectedStudent):
         out, logs = super().loss(batch)
         logs['aghlr_delta_rms'] = self._aghlr_last.get('delta_rms',0.0)
         logs['aghlr_delta_max_abs'] = self._aghlr_last.get('delta_max_abs',0.0)
+        logs['aghlr_sampling_shift_p3'] = self._aghlr_last.get('mean_shift_p3',0.0)
         return out,logs

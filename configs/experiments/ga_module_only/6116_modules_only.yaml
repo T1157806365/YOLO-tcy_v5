@@ -1,0 +1,24 @@
+format: ga_module_only_v1
+source_weights: /mnt/sda/taochangyong/Projects/Model/YOLO-tcy_v5/runs/ga_monoalign_pcgrad_100e/yolo26m_UAVCB_OfficialPT_MonoKD_PCGrad_100e_Step_seed0_v1_dualTeacherInit/weights/best.pt
+output: /mnt/sda/taochangyong/Projects/Model/YOLO-tcy_v5/runs/ga_module_only/6116_modules_only
+tune:
+  device: '3'
+  epochs: 20
+  batch: 4
+  accumulate: 8
+  val_batch: 4
+  workers: 4
+  lr_alignment: 0.0001
+  lr_bhlr: 0.0003
+  lr_guidance: 0.0003
+  lrf: 0.1
+  momentum: 0.937
+  weight_decay: 0.0005
+  grad_clip: 10.0
+  bridge_eta_max: 0.1
+  bridge_warmup_epochs: 5
+  freeze_all_bn: true
+  amp: true
+  val_amp: true
+  seed: 0
+  deterministic: true
