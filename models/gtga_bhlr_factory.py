@@ -415,6 +415,25 @@ def build_model_from_config(
             verbose=verbose,
         )
 
+    elif variant == "rlsfa_gtga_centered_ag_lhfe_v1":
+        from ag_lhfe.model import RGBTAGLHFEDetectionModel
+        align_cfg = dict(model_cfg.get("rlsfa_gtga_centered", model_cfg.get("alignment", {})) or {})
+        align_loss_cfg = dict(loss_cfg.get("alignment", loss_cfg.get("rlsfa_gtga_centered", {})) or {})
+        model = RGBTAGLHFEDetectionModel(
+            model_name=str(model_cfg.get("name", "yolo26m")),
+            nc=int(nc),
+            pretrained=bool(pretrained),
+            fusion=fusion,
+            fusion_indices=fusion_indices,
+            align_mode=str(model_cfg.get("align_mode", "bilinear")),
+            names=names,
+            semantic_imgsz=int(data_cfg.get("rgb_semantic_imgsz", 640)),
+            rlsfa_gtga_centered_cfg=align_cfg,
+            rlsfa_gtga_centered_loss_cfg=align_loss_cfg,
+            ag_lhfe_cfg=dict(model_cfg.get("ag_lhfe", {}) or {}),
+            verbose=verbose,
+        )
+
     elif variant in {
         "rlsfa_gtga_centered_bhlr_v2",
         "rlsfa_gtga_centered",
@@ -914,6 +933,18 @@ def build_model_from_config(
             )
         )
         model.criterion = None
+
+    # AGHR_SPATIAL_GATE_V1: YAML-controlled, checkpoint-restorable gate.
+    # No learnable parameters; strict loading of existing model_state_dict works.
+    if variant in {"rlsfa_gtga_centered_bhlr_v2", "rlsfa_gtga_centered"}:
+        spatial_gate_cfg = dict(
+            ((model_cfg.get("bhlr", {}) or {}).get("spatial_gate", {}) or {})
+        )
+        if getattr(model, "bhlr", None) is not None:
+            for adapter in model.bhlr.adapters.values():
+                adapter.spatial_gate_cfg = dict(spatial_gate_cfg)
+        if verbose and spatial_gate_cfg:
+            print("[AGHR] spatial_gate:", spatial_gate_cfg)
 
     if verbose:
         print(

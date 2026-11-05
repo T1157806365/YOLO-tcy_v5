@@ -986,10 +986,51 @@ class BHLRScaleAdapter(nn.Module):
             ],
         )
 
+        # AGHR_SPATIAL_GATE_V1: parameter-free, alignment-guided injection.
+        # Disabled by default: historical checkpoints preserve their outputs.
+        gate_cfg = getattr(self, "spatial_gate_cfg", None) or {}
+        gate_mode = str(gate_cfg.get("mode", "off")).strip().lower()
+        spatial_gate = None
+        if gate_mode != "off":
+            if gate_mode not in {"aligned", "uniform", "shifted"}:
+                raise ValueError(f"Unsupported AGHR gate mode: {gate_mode}")
+            if external_guidance is None or guidance_source in {"none", "fallback"}:
+                raise RuntimeError(
+                    "AGHR spatial gate requires alignment guidance; "
+                    "use model.bhlr.guidance_mode: alignment"
+                )
+            floor = float(gate_cfg.get("floor", 0.30))
+            dilation = int(gate_cfg.get("dilation", 3))
+            if not 0.0 <= floor <= 1.0:
+                raise ValueError("AGHR floor must lie in [0, 1]")
+            if dilation < 1 or dilation % 2 != 1:
+                raise ValueError("AGHR dilation must be a positive odd integer")
+            # This is prediction-derived cross-modal guidance, never a GT mask.
+            support = guidance["targetness"].detach().clamp(0.0, 1.0)
+            support = self._resize_like(support, rgb_feat)
+            if dilation > 1:
+                support = F.max_pool2d(
+                    support, kernel_size=dilation, stride=1, padding=dilation // 2
+                )
+            if gate_mode == "shifted":
+                # Spatially wrong control, same values and overall strength.
+                support = torch.roll(
+                    support,
+                    shifts=(support.shape[-2] // 2, support.shape[-1] // 2),
+                    dims=(-2, -1),
+                )
+            elif gate_mode == "uniform":
+                # Constant map, exact same per-image spatial mean as aligned.
+                support = support.mean(dim=(-2, -1), keepdim=True).expand_as(support)
+            spatial_gate = floor + (1.0 - floor) * support
+            spatial_gate = spatial_gate.to(dtype=detail_scale.dtype)
+
         usable_detail = (
             selector_multiplier
             * detail_scale
         )
+        if spatial_gate is not None:
+            usable_detail = usable_detail * spatial_gate
 
         gamma = torch.tanh(
             self.gamma_raw
@@ -1052,6 +1093,10 @@ class BHLRScaleAdapter(nn.Module):
 
             "usable_detail":
                 usable_detail,
+
+            # AGHR_SPATIAL_GATE_V1 audit: effective spatial modulation.
+            "spatial_gate_mode": gate_mode,
+            "spatial_gate": spatial_gate,
 
             "gamma":
                 gamma,
