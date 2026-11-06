@@ -1,3 +1,26 @@
+traincc:
+  conda activate tcy
+  cd /mnt/sda/taochangyong/Projects/Model/YOLO-tcy_v5
+  mkdir -p logs pid
+  CFG=configs/experiments/ag_lhfe_kd/KD_B_align_100e.yaml
+  python -m distill_rgbt.train --cfg "$CFG" --check
+  python -m distill_rgbt.train --cfg "$CFG" --smoke-test
+  nohup env CUBLAS_WORKSPACE_CONFIG=:4096:8 PYTHONHASHSEED=0 \
+  python -u -m distill_rgbt.train --cfg "$CFG" \
+    > logs/ag_lhfe_KD_B_100e.log 2>&1 &
+  echo $! > pid/ag_lhfe_KD_B_100e.pid
+  tail -n 20 -f logs/ag_lhfe_KD_B_100e.log
+
+  conda activate tcy
+  cd /mnt/sda/taochangyong/Projects/Model/YOLO-tcy_v5
+  python val_rlsfa_gtga_bhlr_v2.py \
+    --weights runs/ag_lhfe_kd/yolo26m_UAVCB_KD_B_align_100e_seed0/weights/best.pt \
+    --split test \
+    --device 2 \
+    --batch 16 \
+    --workers 4 \
+    --conf 0.001 \
+    --iou 0.70
 model:
   variant: rlsfa_gtga_centered_bhlr_v2
   name: yolo26m
@@ -45,14 +68,14 @@ model:
     reliability_gate:
       enabled: false
   bhlr:
-    enabled: true
+    enabled: false
     scales:
     - 3
     high_to_semantic_ratio: 3
     detail_channels: 48
     stem_channels: 16
     guide_channels: 24
-    guidance_mode: alignment
+    guidance_mode: none
     detach_alignment_guidance: true
 data:
   rgb: /mnt/sda/taochangyong/Projects/Model/YOLO-tcy_v5/configs/datasets/UAV-CB-RGB.yaml
@@ -62,13 +85,13 @@ data:
   tir_imgsz: 640
   pair_mode: relative
 train:
-  device: 5,6
-  batch: 8
+  device: 2,3
+  batch: 16
   batch_mode: global
   workers: 4
-  epochs: 300
+  epochs: 100
   optimizer: SGD
-  lr0: 0.01
+  lr0: 0.005
   lrf: 0.01
   momentum: 0.937
   weight_decay: 0.0005
@@ -76,17 +99,20 @@ train:
   seed: 0
   deterministic: true
   grad_clip: 10.0
-  patience: 50
+  patience: 100
   early_stop_min_delta: 1.0e-06
   resume: null
-  ddp_find_unused_parameters: true
   stage2:
-    enabled: true
+    enabled: false
     epochs: 200
     lr0: 0.001
     lrf: 0.01
     patience: 50
     early_stop_min_delta: 1.0e-06
+  accumulate: 16
+  val_batch: 2
+  expected_effective_batch: 128
+  ddp_find_unused_parameters: true
 augment:
   fliplr: 0.5
   flipud: 0.0
@@ -113,5 +139,26 @@ loss:
     v2_quality_advantage: 0.05
     v2_route_target_temperature: 0.05
 output:
-  project: runs/ag_lhfe_v1
-  name: yolo26m_UAVCB_E0_OriginalBHLR_300p200_seed0
+  project: runs/ag_lhfe_kd
+  name: yolo26m_UAVCB_KD_B_align_100e_seed0
+distill:
+  arm: B_align_only
+  init_teacher_backbones: true
+  teachers:
+    rgb: /mnt/sda/taochangyong/Projects/Model/YOLO-tcy_v5/runs/base/yolo26m-RGB_640_300e_bs16_seed0_new/weights/best.pt
+    tir: /mnt/sda/taochangyong/Projects/Model/YOLO-tcy_v5/runs/base/yolo26m-TIR_640_300e_bs16_seed0_new/weights/best.pt
+    min_conf: 0.3
+    min_gt_iou: 0.5
+    microbatch: 2
+  kd:
+    enabled: true
+    start_epoch: 20
+    reach_epoch: 30
+    hold_until_epoch: 60
+    end_epoch: 80
+    peak_weight: 0.01
+  teacher_init_scope: backbone_only
+mono:
+  enabled: false
+pcgrad:
+  enabled: false

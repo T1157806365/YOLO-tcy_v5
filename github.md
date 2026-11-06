@@ -4,12 +4,12 @@ git status
 git branch --show-current 
 git remote -v 
 # 基于当前代码创建新的备份分支 
-git switch -c backup-2026115-new
+git switch -c backup-2026116-distill_rgbt
 # 提交当前所有未被 .gitignore 排除的修改 
 git add . 
-git commit -m "Backup YOLO-tcy_v5 2026115-new" 
+git commit -m "Backup YOLO-tcy_v5 2026116-distill_rgbt" 
 # 上传新分支到 GitHub 
-git push -u origin backup-2026115-new
+git push -u origin backup-2026116-distill_rgbt
 
 
 # 重新推送

@@ -1,0 +1,13 @@
+nohup: 忽略输入
+[BATCH RESOLVED] GPUs=[4] world_size=1 global_bs=16 per_gpu_bs=16 accumulate=8 effective_bs=128 original_target=128
+[CHECK] arm=C_hr_only physical_devices=[4] global_batch=16 accumulation=8 effective_batch=128
+Traceback (most recent call last):
+  File "/mnt/sda/taochangyong/.conda/envs/tcy/lib/python3.10/runpy.py", line 196, in _run_module_as_main
+    return _run_code(code, main_globals, None,
+  File "/mnt/sda/taochangyong/.conda/envs/tcy/lib/python3.10/runpy.py", line 86, in _run_code
+    exec(code, run_globals)
+  File "/mnt/sda/taochangyong/Projects/Model/YOLO-tcy_v5/distill_rgbt/train.py", line 696, in <module>
+    main()
+  File "/mnt/sda/taochangyong/Projects/Model/YOLO-tcy_v5/distill_rgbt/train.py", line 691, in main
+    raise FileExistsError(f'Output directory not empty: {out}. Change output.name or set train.resume.')
+FileExistsError: Output directory not empty: runs/ag_lhfe_kd/yolo26m_UAVCB_KD_C_bhlr_100e_seed0. Change output.name or set train.resume.

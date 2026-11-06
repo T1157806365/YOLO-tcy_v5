@@ -173,6 +173,18 @@ class DistillStudent(nn.Module):
             align = float(core.lambda_alignment) * stat['total'] * bsz
             logs.update({f'align_{k}': v.detach() if torch.is_tensor(v) else float(v)
                          for k, v in stat.items()})
+        # AG-LHFE-KD v1: preserve the LOCAL ROI classification and geometric
+        # auxiliary loss. DistillStudent does not call core.loss(), therefore
+        # core.ag_lhfe.auxiliary_loss() must be added explicitly exactly once.
+        lhfe_loss = det * 0.0
+        if hasattr(core, 'ag_lhfe'):
+            local_state = getattr(core, '_ag_lhfe_state', None)
+            core._ag_lhfe_state = None
+            if local_state is None:
+                raise RuntimeError('AG-LHFE forward did not produce local state')
+            lhfe_loss, lhfe_logs = core.ag_lhfe.auxiliary_loss(local_state, batch)
+            logs.update(lhfe_logs)
+            logs['lhfe_weighted_loss'] = lhfe_loss.detach() / bsz
         wmono, wkd = self.mono_weight(), self.kd_weight()
         mono, kd = det * 0.0, det * 0.0
         rmono, tmono = det * 0.0, det * 0.0
@@ -224,4 +236,4 @@ class DistillStudent(nn.Module):
             'weight_kd': wkd,
             **pc,
         })
-        return torch.stack((det, align, mono, kd)), logs
+        return torch.stack((det, align, mono, kd, lhfe_loss)), logs

@@ -46,24 +46,52 @@ ARMS = {
 
 def validate_cfg(cfg, check_files=True):
     m, t, d = cfg['model'], cfg['train'], cfg['distill']
-    if m.get('variant') != 'rlsfa_gtga_centered_bhlr_v2':
-        raise ValueError('Requires main original rlsfa_gtga_centered_bhlr_v2 variant')
+    # AG-LHFE-KD v1: allow original four arms plus two matched local-HR arms.
+    variant = str(m.get('variant', ''))
+    is_lhfe = variant == 'rlsfa_gtga_centered_ag_lhfe_v1'
+    if variant not in ('rlsfa_gtga_centered_bhlr_v2',
+                       'rlsfa_gtga_centered_ag_lhfe_v1'):
+        raise ValueError(f'Unsupported distillation variant: {variant}')
     if m.get('pretrained') is not True:
-        raise ValueError("model.pretrained must be YAML boolean true (main had typo 'ture')")
+        raise ValueError('model.pretrained must be YAML boolean true')
     if m.get('fusion') != 'add':
-        raise ValueError('For matched ablation model.fusion must be add')
+        raise ValueError('Use ADD fusion across all ablations')
     arm = str(d.get('arm', ''))
-    if arm not in ARMS:
-        raise ValueError(f'Unknown distill.arm={arm!r}, expected {list(ARMS)}')
+    lhfe_arms = {'E1_local_rgb': 'rgb', 'E2_local_aligned': 'rgb_align'}
+    if arm not in ARMS and arm not in lhfe_arms:
+        raise ValueError(f'Unknown distill.arm={arm!r}')
     a, b = m['rlsfa_gtga_centered'], m['bhlr']
     align_on, hr_on = bool(a['enabled']), bool(b['enabled'])
-    if (align_on, hr_on) != ARMS[arm]:
-        raise ValueError(f'{arm} expects alignment/HR={ARMS[arm]} but got {(align_on,hr_on)}')
+    if is_lhfe:
+        if arm not in lhfe_arms:
+            raise ValueError(f'{variant} requires one of {sorted(lhfe_arms)}')
+        if not align_on or hr_on:
+            raise ValueError('AG-LHFE requires GMLS/DMLS on and original BHLR off')
+        local_cfg = m.get('ag_lhfe', {}) or {}
+        if not bool(local_cfg.get('enabled', False)):
+            raise ValueError('AG-LHFE must be enabled')
+        if str(local_cfg.get('proposal_mode')) != lhfe_arms[arm]:
+            raise ValueError(f'{arm} requires proposal_mode={lhfe_arms[arm]}')
+        if b.get('guidance_mode') != 'none':
+            raise ValueError('AG-LHFE arms must disable BHLR guidance')
+    else:
+        if arm not in ARMS:
+            raise ValueError(f'Original model requires one of {list(ARMS)}')
+        if (align_on, hr_on) != ARMS[arm]:
+            raise ValueError(f'{arm} expects alignment/HR={ARMS[arm]}, got {(align_on,hr_on)}')
+        expected_guidance = 'alignment' if align_on and hr_on else 'none'
+        if b.get('guidance_mode') != expected_guidance:
+            raise ValueError(f'{arm} requires BHLR guidance_mode={expected_guidance}')
     if a.get('apply_scales') != [3,4,5] or b.get('scales') != [3]:
-        raise ValueError('Preserve P3/P4/P5 alignment and P3 BHLR config across arms')
-    expected_guidance = 'alignment' if align_on and hr_on else 'none'
-    if b.get('guidance_mode') != expected_guidance:
-        raise ValueError(f'For arm={arm}, BHLR guidance_mode must be {expected_guidance}')
+        raise ValueError('P3/P4/P5 alignment and P3 HR scales must be unchanged')
+    if not bool(d.get('kd', {}).get('enabled', False)):
+        raise ValueError('This suite REQUIRES distill.kd.enabled=true')
+    if not bool(d.get('init_teacher_backbones', False)):
+        raise ValueError('This suite REQUIRES teacher-backbone initialization')
+    if bool(cfg.get('mono', {}).get('enabled', False)):
+        raise ValueError('Matched KD suite uses Mono loss OFF')
+    if bool(cfg.get('pcgrad', {}).get('enabled', False)):
+        raise ValueError('Matched KD suite uses PCGrad OFF')
     if bool(cfg['loss']['alignment']['enabled']) != align_on:
         raise ValueError('loss.alignment.enabled must follow alignment switch')
     if bool(cfg.get('aghlr', {}).get('enabled', False)) or bool(cfg.get('geometry_hr', {}).get('enabled',False)):
@@ -262,6 +290,7 @@ def _safe_gradient_update(net, optimizer, scaler, device, cfg,
     group_norms = {
         'grad_norm_align': grad_norm(raw.core.alignment),
         'grad_norm_bhlr': grad_norm(raw.core.bhlr),
+        'grad_norm_lhfe': grad_norm(getattr(raw.core,'ag_lhfe',None)),
         'grad_norm_rgb_backbone': grad_norm(raw.core.model),
         'grad_norm_tir_backbone': grad_norm(raw.core.tir_backbone),
         'grad_norm_aux': grad_norm(raw.aux_rgb) + grad_norm(raw.aux_tir),
@@ -288,7 +317,7 @@ def train_epoch(net, loader, optimizer, scaler, device, cfg, stage, epoch, num_e
     skipped_steps, consecutive_bad = 0, 0
     progress=tqdm(enumerate(loader), total=len(loader), disable=not is_main_process(),
                   desc=f'{stage} {epoch}/{num_epochs}', dynamic_ncols=True)
-    gradients = dict(grad_norm_align=0., grad_norm_bhlr=0., grad_norm_rgb_backbone=0.,
+    gradients = dict(grad_norm_align=0., grad_norm_bhlr=0., grad_norm_lhfe=0., grad_norm_rgb_backbone=0.,
                      grad_norm_tir_backbone=0., grad_norm_aux=0.)
     for bi,batch in progress:
         batch = preprocess_batch(batch,device)
@@ -478,7 +507,9 @@ def smoke_test(cfg):
         raise FloatingPointError('Nonfinite smoke-test gradients; first parameters: '
                                  + ', '.join(bad_smoke[:12]))
     for label,module,active in (('align',net.core.alignment,net.core.alignment_enabled),
-                                ('BHLR',net.core.bhlr,net.core.bhlr_enabled)):
+                                ('BHLR',net.core.bhlr,net.core.bhlr_enabled),
+                                ('AG-LHFE',getattr(net.core,'ag_lhfe',None),
+                                 hasattr(net.core,'ag_lhfe'))):
         g=grad_norm(module)
         print(f'[SMOKE] {label} enabled={active} gradient={g:.6g}',flush=True)
         if active and not g>0: raise RuntimeError(f'{label} enabled but gradient is zero')
@@ -530,39 +561,137 @@ def run(cfg):
         cleanup_distributed()
 
 
+# FLEXIBLE_DISTILL_CLI_V1
+
+def _configure_batch_cli(cfg, args):
+    """Resolve a global microbatch, GPU ids, and integer accumulation at runtime.
+
+    The original YAML is not modified. In particular, when it contains an old
+    accumulate: 16 with expected_effective_batch: 128, accumulation is recomputed
+    rather than rejecting the experiment.
+    """
+    t = cfg['train']
+    if args.device is not None:
+        t['device'] = args.device
+
+    devices = parse_device_ids(t['device'])
+    if not devices:
+        raise ValueError('Choose at least one CUDA GPU, e.g. --device 2 or --device 5,6')
+
+    if args.batch is not None:
+        t['batch'] = int(args.batch)
+    if args.batch_per_gpu is not None:
+        t['batch'] = int(args.batch_per_gpu) * len(devices)
+    b = int(t['batch'])
+    if b < 1:
+        raise ValueError('Global batch must be >= 1')
+    if b % len(devices) != 0:
+        raise ValueError(
+            f'Global batch {b} is not divisible by {len(devices)} GPUs {devices}. '
+            f'Choose a multiple of {len(devices)} with --batch, or use --batch-per-gpu.')
+    if t.get('batch_mode', 'global') != 'global':
+        raise ValueError('This trainer uses global batch mode only')
+
+    original_target = t.get('expected_effective_batch')
+    if original_target is None:
+        original_target = b * int(t.get('accumulate', 1))
+    target = int(args.effective_batch if args.effective_batch is not None else original_target)
+    if target < 1:
+        raise ValueError('Target effective batch must be >= 1')
+
+    if args.accumulate is not None:
+        accum = int(args.accumulate)
+    else:
+        # Nearest feasible integer accumulation; halves rounded upward.
+        accum = max(1, (2 * target + b) // (2 * b))
+    if accum < 1:
+        raise ValueError('Accumulation must be >= 1')
+
+    actual = b * accum
+    if args.strict_effective_batch and actual != target:
+        raise ValueError(
+            f'Target effective batch {target} cannot be achieved with global '
+            f'batch={b}, accumulate={accum}. Actual={actual}. '
+            'Choose a divisible batch or a different --effective-batch.')
+
+    # Keep original strict validate_cfg() intact by resolving both fields first.
+    t['accumulate'] = accum
+    t['expected_effective_batch'] = actual
+    if actual != target:
+        print(f'[BATCH WARNING] Requested target effective batch={target}, '
+              f'but integer accumulation gives actual={actual}. '
+              'Use --strict-effective-batch to reject this difference.', flush=True)
+    print(f'[BATCH RESOLVED] GPUs={devices} world_size={len(devices)} '
+          f'global_bs={b} per_gpu_bs={b // len(devices)} '
+          f'accumulate={accum} effective_bs={actual} '
+          f'original_target={target}', flush=True)
+    return devices
+
+
 def main():
-    parser=argparse.ArgumentParser(description='Original main + full DDP/Mono/KD/PCGrad ablations')
-    parser.add_argument('--cfg',required=True)
-    parser.add_argument('--check',action='store_true')
-    parser.add_argument('--smoke-test',action='store_true')
-    args=parser.parse_args()
-    cfg=validate_cfg(load_config(args.cfg))
-    t=cfg['train']
-    devices=parse_device_ids(t['device'])
-    effective=int(t['batch'])*int(t.get('accumulate',1))
+    parser = argparse.ArgumentParser(description='Distillation training with selectable GPUs and batch sizes')
+    parser.add_argument('--cfg', required=True)
+    parser.add_argument('--check', action='store_true')
+    parser.add_argument('--smoke-test', action='store_true')
+    parser.add_argument('--device', type=str, default=None,
+                        help='Physical CUDA IDs: 2, 5,6, 0,1,2,3, ...')
+    batch_opts = parser.add_mutually_exclusive_group()
+    batch_opts.add_argument('--batch', type=int, default=None,
+                            help='Global microbatch across all selected GPUs')
+    batch_opts.add_argument('--batch-per-gpu', type=int, default=None,
+                            help='Local microbatch on each selected GPU')
+    parser.add_argument('--accumulate', type=int, default=None,
+                        help='Optional manual accumulation. Default: auto from target effective batch.')
+    parser.add_argument('--effective-batch', type=int, default=None,
+                        help='Desired effective batch (defaults to YAML expected_effective_batch)')
+    parser.add_argument('--strict-effective-batch', action='store_true',
+                        help='Reject requests that cannot exactly achieve target effective batch')
+    args = parser.parse_args()
+
+    cfg = load_config(args.cfg)
+    devices = _configure_batch_cli(cfg, args)
+    cfg = validate_cfg(cfg)
+    t = cfg['train']
+    effective = int(t['batch']) * int(t['accumulate'])
     print(f'[CHECK] arm={cfg["distill"]["arm"]} physical_devices={devices} '
-          f'global_batch={t["batch"]} accumulation={t.get("accumulate",1)} '
-          f'effective_batch={effective}',flush=True)
+          f'global_batch={t["batch"]} accumulation={t["accumulate"]} '
+          f'effective_batch={effective}', flush=True)
+
     if args.check:
-        print('[CHECK PASS] This training script supports single-GPU and automatic multi-GPU DDP.',flush=True)
+        print('[CHECK PASS] Single GPU and automatic multi-GPU DDP supported.', flush=True)
         return
     if args.smoke_test:
         smoke_test(cfg)
         return
-    if len(devices)>1 and int(os.environ.get('WORLD_SIZE','1'))==1:
-        env=os.environ.copy()
-        env['CUDA_VISIBLE_DEVICES']=','.join(map(str,devices))
-        cmd=[sys.executable,'-m','torch.distributed.run','--standalone',
-             f'--nproc_per_node={len(devices)}','-m','distill_rgbt.train',
-             '--cfg',str(Path(args.cfg).expanduser().resolve())]
-        print('[DDP] Physical GPUs',devices,'=> torchrun',len(devices),'processes',flush=True)
-        subprocess.run(cmd,env=env,check=True)
+
+    if len(devices) > 1 and int(os.environ.get('WORLD_SIZE', '1')) == 1:
+        env = os.environ.copy()
+        env['CUDA_VISIBLE_DEVICES'] = ','.join(map(str, devices))
+        cmd = [sys.executable, '-m', 'torch.distributed.run', '--standalone',
+               f'--nproc_per_node={len(devices)}', '-m', 'distill_rgbt.train',
+               '--cfg', str(Path(args.cfg).expanduser().resolve())]
+        # CRITICAL: Torchrun children must receive the SAME overrides as parent.
+        for flag, value in (
+            ('--device', args.device),
+            ('--batch', args.batch),
+            ('--batch-per-gpu', args.batch_per_gpu),
+            ('--accumulate', args.accumulate),
+            ('--effective-batch', args.effective_batch),
+        ):
+            if value is not None:
+                cmd.extend((flag, str(value)))
+        if args.strict_effective_batch:
+            cmd.append('--strict-effective-batch')
+        print('[DDP] Physical GPUs', devices, '=> torchrun', len(devices), 'processes', flush=True)
+        subprocess.run(cmd, env=env, check=True)
         return
-    # Refuse accidental overwrites, except an explicit stage1 resume.
-    out=Path(cfg['output']['project'])/str(cfg['output']['name'])
+
+    out = Path(cfg['output']['project']) / str(cfg['output']['name'])
     if is_main_process() and not t.get('resume') and out.exists() and any(out.iterdir()):
         raise FileExistsError(f'Output directory not empty: {out}. Change output.name or set train.resume.')
     run(cfg)
 
 
-if __name__=='__main__':main()
+if __name__ == '__main__':
+    main()
+

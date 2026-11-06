@@ -225,13 +225,26 @@ class LocalHighResFeatureExtractor(nn.Module):
         weight = weight * scores.squeeze(-1)[:, :, None]
         # Leave absolute strength informative; divide by mass of candidates
         # mapped to same cell, but not by full Gaussian integral.
-        value = emb[:, :, :, None] * weight[:, :, None, :]
-        canvas = emb.new_zeros((b, c, h*w))
-        canvas.scatter_add_(2, idx.reshape(b, 1, -1).expand(b, c, -1), value.reshape(b, c, -1))
-        mass = emb.new_zeros((b, 1, h*w))
-        mass.scatter_add_(2, idx.reshape(b, 1, -1), weight.reshape(b, 1, -1))
-        canvas = canvas / (1.0 + mass)
-        return canvas.view(b, c, h, w), mass.view(b, 1, h, w)
+        # AMP-safe scatter: embeddings may be float16/bfloat16 while the
+        # Gaussian weights are float32. scatter_add_ requires equal dtypes.
+        # Accumulate overlapping candidate features in float32 for stability.
+        weight_fp32 = weight.float()
+        value_fp32 = emb.float()[:, :, :, None] * weight_fp32[:, :, None, :]
+        scatter_idx = idx.reshape(b, 1, -1)
+        canvas_fp32 = torch.zeros(
+            (b, c, h*w), device=emb.device, dtype=torch.float32
+        )
+        canvas_fp32.scatter_add_(
+            2, scatter_idx.expand(b, c, -1), value_fp32.reshape(b, c, -1)
+        )
+        mass_fp32 = torch.zeros(
+            (b, 1, h*w), device=emb.device, dtype=torch.float32
+        )
+        mass_fp32.scatter_add_(
+            2, scatter_idx, weight_fp32.reshape(b, 1, -1)
+        )
+        canvas = (canvas_fp32 / (1.0 + mass_fp32)).to(emb.dtype)
+        return canvas.view(b, c, h, w), mass_fp32.view(b, 1, h, w)
 
     def forward(self, rgb_high: torch.Tensor, rgb_p3: torch.Tensor, tir_p3: torch.Tensor,
                 rgb_support: torch.Tensor, tir_support: torch.Tensor, joint_support: torch.Tensor,
