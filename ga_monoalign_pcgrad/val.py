@@ -1,5 +1,76 @@
 """Strict validation of new student and two single-modal auxiliary heads."""
 from __future__ import annotations
+
+# PHYSICAL_GPU_VAL_BEGIN
+# --device N 始终对应 nvidia-smi 中的物理 GPU N
+# 必须在 torch 和项目模块导入之前执行
+
+import os as _gpu_os
+import sys as _gpu_sys
+import subprocess as _gpu_subprocess
+
+
+def _configure_physical_gpu():
+    args = _gpu_sys.argv[1:]
+    requested = "0"
+
+    for i, arg in enumerate(args):
+        if arg == "--device" and i + 1 < len(args):
+            requested = args[i + 1]
+            break
+        if arg.startswith("--device="):
+            requested = arg.split("=", 1)[1]
+            break
+
+    if requested.lower() == "cpu":
+        _gpu_os.environ["CUDA_VISIBLE_DEVICES"] = ""
+        return "cpu"
+
+    if not requested.isdigit():
+        raise ValueError(
+            f"--device 必须是物理 GPU 编号或 cpu，收到: {requested}"
+        )
+
+    physical_id = int(requested)
+
+    output = _gpu_subprocess.check_output(
+        [
+            "nvidia-smi",
+            "--query-gpu=index,uuid",
+            "--format=csv,noheader",
+        ],
+        text=True,
+    )
+
+    gpu_map = {}
+    for line in output.strip().splitlines():
+        index, uuid = [x.strip() for x in line.split(",", 1)]
+        gpu_map[int(index)] = uuid
+
+    if physical_id not in gpu_map:
+        raise RuntimeError(
+            f"物理 GPU {physical_id} 不存在，可用编号: {sorted(gpu_map)}"
+        )
+
+    # 用 UUID 锁定物理 GPU，避免 CUDA 与 nvidia-smi 顺序不一致
+    _gpu_os.environ["CUDA_VISIBLE_DEVICES"] = gpu_map[physical_id]
+
+    print(
+        f"[PHYSICAL GPU] {physical_id} -> "
+        f"{gpu_map[physical_id]} -> cuda:0",
+        flush=True,
+    )
+
+    return "0"
+
+
+_PHYSICAL_VAL_DEVICE = (
+    _configure_physical_gpu()
+    if __name__ == "__main__"
+    else "0"
+)
+# PHYSICAL_GPU_VAL_END
+
 import argparse,json
 import torch
 from pathlib import Path
@@ -31,7 +102,7 @@ def main():
         help="Zero BHLR gamma in-memory, leaving all other weights intact",
     )
     args=p.parse_args()
-    device=select_device(args.device)
+    device=select_device(_PHYSICAL_VAL_DEVICE)
     model,ck,cfg=load_checkpoint(args.weights,device)
     if args.bhlr_injection_position != "checkpoint":
         model.core.bhlr_injection_position = args.bhlr_injection_position
