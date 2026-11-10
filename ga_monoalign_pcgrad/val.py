@@ -1,6 +1,7 @@
 """Strict validation of new student and two single-modal auxiliary heads."""
 from __future__ import annotations
 import argparse,json
+import torch
 from pathlib import Path
 from datasets.dual_resolution_rgbt_dataset import build_dual_resolution_dataset,build_dual_resolution_dataloader
 from engine.runtime import select_device
@@ -18,9 +19,30 @@ def main():
     p.add_argument('--conf',type=float,default=.001);p.add_argument('--iou',type=float,default=.70)
     p.add_argument('--save-dir',default=None)
     p.add_argument('--geometry-all',action='store_true',help='Calculate alignment IoU on entire split')
+    p.add_argument(
+        "--bhlr-injection-position",
+        default="checkpoint",
+        choices=("checkpoint", "pre_fusion", "post_fusion"),
+        help="For same-weight counterfactual tests only; does not change checkpoint",
+    )
+    p.add_argument(
+        "--disable-bhlr-residual",
+        action="store_true",
+        help="Zero BHLR gamma in-memory, leaving all other weights intact",
+    )
     args=p.parse_args()
     device=select_device(args.device)
     model,ck,cfg=load_checkpoint(args.weights,device)
+    if args.bhlr_injection_position != "checkpoint":
+        model.core.bhlr_injection_position = args.bhlr_injection_position
+    if args.disable_bhlr_residual:
+        if model.core.bhlr is None:
+            raise RuntimeError("Checkpoint has no BHLR module to disable")
+        with torch.no_grad():
+            for adapter in model.core.bhlr.adapters.values():
+                adapter.gamma_raw.zero_()
+    print("[ABLATION] BHLR injection:", model.core.bhlr_injection_position,
+          "residual_off:", args.disable_bhlr_residual, flush=True)
     d=cfg['data']
     data=build_dual_resolution_dataset(rgb_yaml=d['rgb'],tir_yaml=d['tir'],split=args.split,
         rgb_high_imgsz=int(d['rgb_imgsz']),rgb_semantic_imgsz=int(d['rgb_semantic_imgsz']),
@@ -33,6 +55,8 @@ def main():
     mono=mono_metrics(model,loader,device,amp=device.type=='cuda')
     geom=geometry_iou(model,loader,device,max_images=len(data) if args.geometry_all else 96)
     res={'split':args.split,'checkpoint':str(Path(args.weights).resolve()),
+         'bhlr_injection_position':model.core.bhlr_injection_position,
+         'bhlr_residual_disabled':bool(args.disable_bhlr_residual),
          'student_scratch':True,'gmlsv2':True,**main,**mono,**geom}
     path=Path(args.save_dir) if args.save_dir else Path(args.weights).resolve().parent.parent/f'val_{args.split}_monoalign'
     if path.exists() and (path/'metrics.json').exists():

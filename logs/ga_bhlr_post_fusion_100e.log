@@ -1,0 +1,91 @@
+nohup: 忽略输入
+[DDP] Physical GPUs: [5, 6]
+
+============================================================
+RGB-T Paired Dataset
+============================================================
+Split        : train
+RGB YAML     : /mnt/sda/taochangyong/Projects/Model/YOLO-tcy_v5/configs/datasets/UAV-CB-RGB.yaml
+TIR YAML     : /mnt/sda/taochangyong/Projects/Model/YOLO-tcy_v5/configs/datasets/UAV-CB-TIR.yaml
+RGB images   : 2032
+TIR images   : 2032
+Pairs        : 2032
+Missing TIR  : 0
+Missing RGB  : 0
+Pair mode    : relative
+RGB imgsz    : (1920, 1920)
+TIR imgsz    : (640, 640)
+TIR channels : 3
+Classes      : 1
+============================================================
+
+RSD-T RGB high: (1920, 1920)
+RSD-T RGB semantic: (640, 640)
+
+============================================================
+RGB-T Paired Dataset
+============================================================
+Split        : train
+RGB YAML     : /mnt/sda/taochangyong/Projects/Model/YOLO-tcy_v5/configs/datasets/UAV-CB-RGB.yaml
+TIR YAML     : /mnt/sda/taochangyong/Projects/Model/YOLO-tcy_v5/configs/datasets/UAV-CB-TIR.yaml
+RGB images   : 2032
+TIR images   : 2032
+Pairs        : 2032
+Missing TIR  : 0
+Missing RGB  : 0
+Pair mode    : relative
+RGB imgsz    : (1920, 1920)
+TIR imgsz    : (640, 640)
+TIR channels : 3
+Classes      : 1
+============================================================
+
+RSD-T RGB high: (1920, 1920)
+RSD-T RGB semantic: (640, 640)
+
+============================================================
+RGB-T Paired Dataset
+============================================================
+Split        : val
+RGB YAML     : /mnt/sda/taochangyong/Projects/Model/YOLO-tcy_v5/configs/datasets/UAV-CB-RGB.yaml
+TIR YAML     : /mnt/sda/taochangyong/Projects/Model/YOLO-tcy_v5/configs/datasets/UAV-CB-TIR.yaml
+RGB images   : 679
+TIR images   : 679
+Pairs        : 679
+Missing TIR  : 0
+Missing RGB  : 0
+Pair mode    : relative
+RGB imgsz    : (1920, 1920)
+TIR imgsz    : (640, 640)
+TIR channels : 3
+Classes      : 1
+============================================================
+
+RSD-T RGB high: (1920, 1920)
+RSD-T RGB semantic: (640, 640)
+Overriding model.yaml nc=80 with nc=1
+Overriding model.yaml nc=80 with nc=1
+[TEACHER-INIT PASS] RGB full backbone+neck+head: 768 state keys, 21,774,430 parameters
+[TEACHER-INIT PASS] RGB full backbone+neck+head: 768 state keys, 21,774,430 parameters
+[TEACHER-INIT PASS] RGB auxiliary neck+head: 468 state keys, 11,422,238 parameters
+[TEACHER-INIT PASS] RGB auxiliary neck+head: 468 state keys, 11,422,238 parameters
+[TEACHER-INIT PASS] TIR backbone: 300 state keys, 10,352,192 parameters
+[TEACHER-INIT PASS] TIR backbone: 300 state keys, 10,352,192 parameters
+[TEACHER-INIT PASS] TIR auxiliary neck+head: 468 state keys, 11,422,238 parameters
+[TEACHER-INIT DONE] Student initialized from the two UAV-CB teachers. GMLS/DMLS, BHLR, fusion remain independently initialized.
+[TEACHER-INIT PASS] TIR auxiliary neck+head: 468 state keys, 11,422,238 parameters
+[TEACHER-INIT DONE] Student initialized from the two UAV-CB teachers. GMLS/DMLS, BHLR, fusion remain independently initialized.
+[TRAIN] rank=0, device=cuda:0, batch/rank=16, global batch=32, accumulate=1, GMLS-v2 original FULL, official YOLO pretrained=True
+
+==============================================================================================
+stage1 training | GA-MonoAlign-PCGrad (GMLS-v2 preserved)
+==============================================================================================
+epochs: 100 | lr0: 0.005 | lrf: 0.01 | patience: 20
+RGB high/semantic/TIR: 1920/640/640
+GMLS=True | GMLS-v2 routing=True | Fine=True | BHLR=True
+Official YOLO pretrained=True | student warm start=None | student resume=None
+Train: box / cls / dfl + original alignment + auxiliary detection + teacher KD
+Val: fusion AP every epoch; RGB/TIR auxiliary AP periodically; geometry on subset
+==============================================================================================
+stage1 1/100:   0%|          | 0/64 [00:00<?, ?it/s][TRAIN] rank=1, device=cuda:1, batch/rank=16, global batch=32, accumulate=1, GMLS-v2 original FULL, official YOLO pretrained=True
+stage1   1/100 GPU_mem=40.67G box=1.1135 cls=0.3991 dfl=N/A Instances=16 Size=1920/640:   2%|▏         | 1/64 [00:04<04:57,  4.71s/it]stage1   1/100 GPU_mem=41.33G box=1.0587 cls=0.3976 dfl=N/A Instances=16 Size=1920/640:   3%|▎         | 2/64 [00:06<02:50,  2.75s/it]stage1   1/100 GPU_mem=41.33G box=1.0080 cls=0.3914 dfl=N/A Instances=16 Size=1920/640:   5%|▍         | 3/64 [00:07<02:09,  2.12s/it]stage1   1/100 GPU_mem=41.33G box=0.9654 cls=0.4485 dfl=N/A Instances=16 Size=1920/640:   6%|▋         | 4/64 [00:08<01:49,  1.83s/it]stage1   1/100 GPU_mem=41.40G box=0.8989 cls=0.4072 dfl=N/A Instances=16 Size=1920/640:   8%|▊         | 5/64 [00:10<01:38,  1.66s/it]stage1   1/100 GPU_mem=41.40G box=0.9051 cls=0.4740 dfl=N/A Instances=16 Size=1920/640:   9%|▉         | 6/64 [00:11<01:30,  1.57s/it]stage1   1/100 GPU_mem=41.40G box=0.8732 cls=0.4482 dfl=N/A Instances=16 Size=1920/640:  11%|█         | 7/64 [00:12<01:25,  1.50s/it]stage1   1/100 GPU_mem=41.40G box=0.8653 cls=0.4319 dfl=N/A Instances=16 Size=1920/640:  12%|█▎        | 8/64 [00:14<01:21,  1.46s/it]stage1   1/100 GPU_mem=41.40G box=0.8911 cls=0.4138 dfl=N/A Instances=16 Size=1920/640:  14%|█▍        | 9/64 [00:15<01:18,  1.43s/it]stage1   1/100 GPU_mem=41.40G box=0.8902 cls=0.4098 dfl=N/A Instances=16 Size=1920/640:  16%|█▌        | 10/64 [00:17<01:16,  1.41s/it]stage1   1/100 GPU_mem=41.40G box=0.8822 cls=0.3940 dfl=N/A Instances=16 Size=1920/640:  17%|█▋        | 11/64 [00:18<01:14,  1.40s/it]stage1   1/100 GPU_mem=41.40G box=0.8868 cls=0.3910 dfl=N/A Instances=16 Size=1920/640:  19%|█▉        | 12/64 [00:19<01:12,  1.39s/it]stage1   1/100 GPU_mem=41.40G box=0.8813 cls=0.3781 dfl=N/A Instances=16 Size=1920/640:  20%|██        | 13/64 [00:21<01:10,  1.39s/it]stage1   1/100 GPU_mem=41.40G box=0.8653 cls=0.3681 dfl=N/A Instances=16 Size=1920/640:  22%|██▏       | 14/64 [00:22<01:09,  1.38s/it]stage1   1/100 GPU_mem=41.40G box=0.8524 cls=0.3640 dfl=N/A Instances=16 Size=1920/640:  23%|██▎       | 15/64 [00:24<01:09,  1.42s/it]stage1   1/100 GPU_mem=41.40G box=0.8400 cls=0.3545 dfl=N/A Instances=16 Size=1920/640:  25%|██▌       | 16/64 [00:25<01:07,  1.40s/it]stage1   1/100 GPU_mem=41.40G box=0.8440 cls=0.3509 dfl=N/A Instances=16 Size=1920/640:  27%|██▋       | 17/64 [00:26<01:05,  1.39s/it]stage1   1/100 GPU_mem=41.40G box=0.8444 cls=0.3436 dfl=N/A Instances=16 Size=1920/640:  28%|██▊       | 18/64 [00:28<01:03,  1.39s/it]stage1   1/100 GPU_mem=41.40G box=0.8420 cls=0.3419 dfl=N/A Instances=16 Size=1920/640:  30%|██▉       | 19/64 [00:29<01:02,  1.38s/it]stage1   1/100 GPU_mem=41.40G box=0.8365 cls=0.3360 dfl=N/A Instances=16 Size=1920/640:  31%|███▏      | 20/64 [00:30<01:00,  1.38s/it]stage1   1/100 GPU_mem=42.06G box=0.8369 cls=0.3312 dfl=N/A Instances=16 Size=1920/640:  33%|███▎      | 21/64 [00:32<00:59,  1.39s/it]stage1   1/100 GPU_mem=42.06G box=0.8330 cls=0.3286 dfl=N/A Instances=16 Size=1920/640:  34%|███▍      | 22/64 [00:33<00:58,  1.39s/it]stage1   1/100 GPU_mem=42.06G box=0.8315 cls=0.3248 dfl=N/A Instances=16 Size=1920/640:  36%|███▌      | 23/64 [00:35<00:56,  1.38s/it]stage1   1/100 GPU_mem=42.06G box=0.8310 cls=0.3202 dfl=N/A Instances=16 Size=1920/640:  38%|███▊      | 24/64 [00:36<00:55,  1.38s/it]stage1   1/100 GPU_mem=42.06G box=0.8318 cls=0.3189 dfl=N/A Instances=16 Size=1920/640:  39%|███▉      | 25/64 [00:37<00:53,  1.38s/it]stage1   1/100 GPU_mem=42.06G box=0.8298 cls=0.3145 dfl=N/A Instances=16 Size=1920/640:  41%|████      | 26/64 [00:39<00:52,  1.38s/it]stage1   1/100 GPU_mem=42.06G box=0.8277 cls=0.3110 dfl=N/A Instances=16 Size=1920/640:  42%|████▏     | 27/64 [00:40<00:50,  1.38s/it]stage1   1/100 GPU_mem=42.06G box=0.8235 cls=0.3069 dfl=N/A Instances=16 Size=1920/640:  44%|████▍     | 28/64 [00:41<00:49,  1.38s/it]stage1   1/100 GPU_mem=42.06G box=0.8251 cls=0.3043 dfl=N/A Instances=16 Size=1920/640:  45%|████▌     | 29/64 [00:43<00:48,  1.38s/it]stage1   1/100 GPU_mem=42.06G box=0.8269 cls=0.3021 dfl=N/A Instances=16 Size=1920/640:  47%|████▋     | 30/64 [00:44<00:46,  1.38s/it]stage1   1/100 GPU_mem=42.06G box=0.8324 cls=0.3006 dfl=N/A Instances=16 Size=1920/640:  48%|████▊     | 31/64 [00:46<00:45,  1.38s/it]stage1   1/100 GPU_mem=42.06G box=0.8304 cls=0.3013 dfl=N/A Instances=16 Size=1920/640:  50%|█████     | 32/64 [00:47<00:43,  1.37s/it]stage1   1/100 GPU_mem=42.06G box=0.8302 cls=0.2986 dfl=N/A Instances=16 Size=1920/640:  52%|█████▏    | 33/64 [00:48<00:42,  1.37s/it]stage1   1/100 GPU_mem=42.06G box=0.8332 cls=0.2965 dfl=N/A Instances=16 Size=1920/640:  53%|█████▎    | 34/64 [00:50<00:41,  1.38s/it]stage1   1/100 GPU_mem=42.06G box=0.8355 cls=0.2991 dfl=N/A Instances=16 Size=1920/640:  55%|█████▍    | 35/64 [00:51<00:40,  1.41s/it]stage1   1/100 GPU_mem=42.06G box=0.8359 cls=0.2981 dfl=N/A Instances=16 Size=1920/640:  56%|█████▋    | 36/64 [00:53<00:39,  1.40s/it]stage1   1/100 GPU_mem=42.06G box=0.8326 cls=0.2949 dfl=N/A Instances=16 Size=1920/640:  58%|█████▊    | 37/64 [00:54<00:37,  1.39s/it]stage1   1/100 GPU_mem=42.06G box=0.8307 cls=0.2922 dfl=N/A Instances=16 Size=1920/640:  59%|█████▉    | 38/64 [00:55<00:36,  1.38s/it]stage1   1/100 GPU_mem=42.06G box=0.8294 cls=0.2895 dfl=N/A Instances=16 Size=1920/640:  61%|██████    | 39/64 [00:57<00:34,  1.38s/it]stage1   1/100 GPU_mem=42.06G box=0.8302 cls=0.2883 dfl=N/A Instances=16 Size=1920/640:  62%|██████▎   | 40/64 [00:58<00:33,  1.38s/it]stage1   1/100 GPU_mem=42.06G box=0.8308 cls=0.2866 dfl=N/A Instances=16 Size=1920/640:  64%|██████▍   | 41/64 [00:59<00:31,  1.38s/it]stage1   1/100 GPU_mem=42.06G box=0.8292 cls=0.2859 dfl=N/A Instances=16 Size=1920/640:  66%|██████▌   | 42/64 [01:01<00:30,  1.38s/it]stage1   1/100 GPU_mem=42.06G box=0.8248 cls=0.2831 dfl=N/A Instances=16 Size=1920/640:  67%|██████▋   | 43/64 [01:02<00:28,  1.38s/it]stage1   1/100 GPU_mem=42.06G box=0.8273 cls=0.2817 dfl=N/A Instances=16 Size=1920/640:  69%|██████▉   | 44/64 [01:04<00:27,  1.38s/it]stage1   1/100 GPU_mem=42.06G box=0.8287 cls=0.2803 dfl=N/A Instances=16 Size=1920/640:  70%|███████   | 45/64 [01:05<00:26,  1.38s/it]stage1   1/100 GPU_mem=42.06G box=0.8257 cls=0.2787 dfl=N/A Instances=16 Size=1920/640:  72%|███████▏  | 46/64 [01:06<00:24,  1.38s/it]stage1   1/100 GPU_mem=42.06G box=0.8227 cls=0.2786 dfl=N/A Instances=16 Size=1920/640:  73%|███████▎  | 47/64 [01:08<00:23,  1.38s/it]stage1   1/100 GPU_mem=42.06G box=0.8216 cls=0.2787 dfl=N/A Instances=16 Size=1920/640:  75%|███████▌  | 48/64 [01:09<00:22,  1.38s/it]stage1   1/100 GPU_mem=42.06G box=0.8170 cls=0.2764 dfl=N/A Instances=16 Size=1920/640:  77%|███████▋  | 49/64 [01:10<00:20,  1.37s/it]stage1   1/100 GPU_mem=42.06G box=0.8193 cls=0.2753 dfl=N/A Instances=16 Size=1920/640:  78%|███████▊  | 50/64 [01:12<00:19,  1.38s/it]stage1   1/100 GPU_mem=42.06G box=0.8164 cls=0.2737 dfl=N/A Instances=16 Size=1920/640:  80%|███████▉  | 51/64 [01:13<00:17,  1.38s/it]stage1   1/100 GPU_mem=42.06G box=0.8193 cls=0.2731 dfl=N/A Instances=16 Size=1920/640:  81%|████████▏ | 52/64 [01:15<00:16,  1.38s/it]stage1   1/100 GPU_mem=42.06G box=0.8187 cls=0.2718 dfl=N/A Instances=16 Size=1920/640:  83%|████████▎ | 53/64 [01:16<00:15,  1.38s/it]stage1   1/100 GPU_mem=42.06G box=0.8190 cls=0.2709 dfl=N/A Instances=16 Size=1920/640:  84%|████████▍ | 54/64 [01:17<00:13,  1.38s/it]stage1   1/100 GPU_mem=42.06G box=0.8182 cls=0.2693 dfl=N/A Instances=16 Size=1920/640:  86%|████████▌ | 55/64 [01:19<00:12,  1.38s/it]stage1   1/100 GPU_mem=42.06G box=0.8152 cls=0.2676 dfl=N/A Instances=16 Size=1920/640:  88%|████████▊ | 56/64 [01:20<00:11,  1.39s/it]

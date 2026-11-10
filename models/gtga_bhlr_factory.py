@@ -491,7 +491,11 @@ def build_model_from_config(
             }
         else:
             model_class = RGBTRLSFAGTGACenteredBHLRV2DetectionModel
-            model_extra = {}
+            model_extra = {
+                "bhlr_injection_position": str(
+                    bhlr_cfg.get("injection_position", "pre_fusion")
+                )
+            }
 
         model = model_class(
             model_name=str(

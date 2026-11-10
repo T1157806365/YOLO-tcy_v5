@@ -86,6 +86,7 @@ class RGBTRLSFAGTGACenteredBHLRV2DetectionModel(RGBTDetectionModel):
         guide_channels: int = 24,
         bhlr_guidance_mode: str = "alignment",
         bhlr_detach_alignment_guidance: bool = True,
+        bhlr_injection_position: str = "pre_fusion",
         verbose: bool = True,
         **legacy_kwargs,
     ):
@@ -190,6 +191,9 @@ class RGBTRLSFAGTGACenteredBHLRV2DetectionModel(RGBTDetectionModel):
         # BHLR
         # ------------------------------------------------------------------
         self.bhlr_enabled = bool(bhlr_enabled)
+        self.bhlr_injection_position = str(bhlr_injection_position).strip().lower()
+        if self.bhlr_injection_position not in {"pre_fusion", "post_fusion"}:
+            raise ValueError("bhlr_injection_position must be pre_fusion or post_fusion")
         self.bhlr_guidance_mode = str(bhlr_guidance_mode).strip().lower()
         if self.bhlr_guidance_mode not in {"alignment", "none"}:
             raise ValueError(
@@ -518,6 +522,15 @@ class RGBTRLSFAGTGACenteredBHLRV2DetectionModel(RGBTDetectionModel):
             and rgb.shape[-2:] != rgb_semantic.shape[-2:]
         )
 
+        # pre_fusion preserves the historical forward path exactly.
+        # post_fusion moves only the residual injection AFTER RGB-T fusion.
+        if self.bhlr_injection_position == "post_fusion":
+            fused_outputs, fusion_features = self.fuse_backbone_features(
+                rgb_outputs, aligned_tir
+            )
+        else:
+            fused_outputs, fusion_features = None, None
+
         if use_bhlr:
             detail_raw, reconstructed_high, residual_high = self.bhlr.build_lost_detail_bank(
                 rgb, rgb_semantic
@@ -533,6 +546,11 @@ class RGBTRLSFAGTGACenteredBHLRV2DetectionModel(RGBTDetectionModel):
                     "detail_bank": detail_raw,
                 })
 
+            # This reference is the ONLY change in BHLR feature injection.
+            bhlr_target_features = (
+                fused_outputs if self.bhlr_injection_position == "post_fusion"
+                else rgb_outputs
+            )
             for scale in self.bhlr_scales:
                 layer_id = self.scale_to_index[scale]
 
@@ -556,7 +574,7 @@ class RGBTRLSFAGTGACenteredBHLRV2DetectionModel(RGBTDetectionModel):
                     tir_support = ref_dbg["aligned_tir_local_targetness"]
                     joint_support = alignment_info["support_by_scale"][scale]
 
-                    target_hw = rgb_outputs[layer_id].shape[-2:]
+                    target_hw = bhlr_target_features[layer_id].shape[-2:]
                     if rgb_support.shape[-2:] != target_hw:
                         rgb_support = F.interpolate(
                             rgb_support, size=target_hw, mode="bilinear",
@@ -606,12 +624,12 @@ class RGBTRLSFAGTGACenteredBHLRV2DetectionModel(RGBTDetectionModel):
                     enhanced, dbg = self.bhlr.enhance_layer(
                         layer_id=layer_id,
                         detail_raw=detail_raw,
-                        rgb_feat=rgb_outputs[layer_id],
+                        rgb_feat=bhlr_target_features[layer_id],
                         tir_feat=aligned_tir[layer_id],
                         external_guidance=guidance,
                         return_debug=True,
                     )
-                    rgb_outputs[layer_id] = enhanced
+                    bhlr_target_features[layer_id] = enhanced
                     if guidance is not None:
                         dbg["rgb_target_support"] = guidance["rgb_target_support"]
                         dbg["aligned_tir_target_support"] = guidance["aligned_tir_target_support"]
@@ -622,18 +640,26 @@ class RGBTRLSFAGTGACenteredBHLRV2DetectionModel(RGBTDetectionModel):
                     bhlr_debug["layers"][layer_id] = dbg
                     bhlr_debug["scales"][scale] = dbg
                 else:
-                    rgb_outputs[layer_id] = self.bhlr.enhance_layer(
+                    bhlr_target_features[layer_id] = self.bhlr.enhance_layer(
                         layer_id=layer_id,
                         detail_raw=detail_raw,
-                        rgb_feat=rgb_outputs[layer_id],
+                        rgb_feat=bhlr_target_features[layer_id],
                         tir_feat=aligned_tir[layer_id],
                         external_guidance=guidance,
                         return_debug=False,
                     )
 
-        fused_outputs, fusion_features = self.fuse_backbone_features(
-            rgb_outputs, aligned_tir
-        )
+        if self.bhlr_injection_position == "pre_fusion":
+            # Original path: BHLR enhanced RGB -> multimodal fusion.
+            fused_outputs, fusion_features = self.fuse_backbone_features(
+                rgb_outputs, aligned_tir
+            )
+        elif use_bhlr:
+            # The final P3 fusion feature must contain the enhanced tensor,
+            # not the pre-enhancement alias retained by fusion_features.
+            for scale in self.bhlr_scales:
+                layer_id = self.scale_to_index[scale]
+                fusion_features[layer_id] = fused_outputs[layer_id]
 
         result = {
             "rgb_backbone": rgb_outputs,
@@ -658,6 +684,7 @@ class RGBTRLSFAGTGACenteredBHLRV2DetectionModel(RGBTDetectionModel):
             "bhlr_scales": self.bhlr_scales,
             "bhlr_layers": self.bhlr_layers,
             "bhlr_guidance_mode": self.bhlr_guidance_mode,
+            "bhlr_injection_position": self.bhlr_injection_position,
         }
         if return_bhlr_debug:
             result["bhlr_debug"] = bhlr_debug
