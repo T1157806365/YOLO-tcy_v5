@@ -373,12 +373,16 @@ def validate_metrics(
     pbar = tqdm(loader, total=len(loader), dynamic_ncols=True, leave=True)
 
     for batch in pbar:
+        if seen == 0:
+            pass
         batch_size = int(batch['rgb_img'].shape[0])
         seen += batch_size
         total_instances += int(batch['rgb_cls'].shape[0])
 
         batch = preprocess_batch(batch, device)
 
+        if seen == batch_size:
+            pass
         with autocast_context(device, amp):
             raw = model(
                 batch['rgb_img'],
@@ -386,6 +390,8 @@ def validate_metrics(
                 rgb_semantic=batch['rgb_semantic_img'],
             )
 
+        if seen == batch_size:
+            pass
         preds = postprocess_predictions(
             raw,
             model=model,

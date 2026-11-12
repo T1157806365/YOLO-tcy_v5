@@ -1,0 +1,33 @@
+ M engine/evaluator.py
+ M ga_monoalign_pcgrad/model.py
+ M ga_monoalign_pcgrad/train.py
+ M github.md
+ M models/gtga_bhlr_factory.py
+ M models/rgbt_rlsfa_gtga_centered_bhlr_model.py
+?? configs/experiments/accf_v3_guarded/
+?? configs/experiments/aghr_refine/
+?? ga_monoalign_pcgrad/aghr_refine.py
+?? ga_monoalign_pcgrad/aghr_val.py
+?? logs/ACCF_B_feature_only.log
+?? logs/ACCF_B_feature_only_100e.log
+?? logs/ACCF_B_feature_only_100e1.log
+?? logs/ACCF_C_alignment_100e.log
+?? logs/ACCF_C_no_feedback.log
+?? logs/AGHR_C_full_100e.log
+?? logs/AGHR_D_no_hr_100e.log
+?? models/modules/accf.py
+?? models/modules/accf_v3.py
+?? patch_backups/accf_from_scratch_v2_20261111_012211/
+?? patch_backups/accf_v3_guarded_20261111_025449/
+?? patch_backups/aghr_optimizer_monitor_20261111_155725/
+?? patch_backups/aghr_refine_6142_20261111-154519/
+?? patch_backups/aghr_support_grad_safe_20261111_155723/
+?? patch_backups/restore_inplace_614162_20261111_194005/
+?? pid/ACCF_B_feature_only.pid
+?? pid/ACCF_B_feature_only_100e.pid
+?? pid/ACCF_B_feature_only_100e1.pid
+?? pid/ACCF_C_alignment_100e.pid
+?? pid/ACCF_C_no_feedback.pid
+?? pid/AGHR_C_full_100e.pid
+?? pid/AGHR_D_no_hr_100e.pid
+?? restore_614162_INPLACE_v2.zip

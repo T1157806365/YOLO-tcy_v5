@@ -494,7 +494,8 @@ def build_model_from_config(
             model_extra = {
                 "bhlr_injection_position": str(
                     bhlr_cfg.get("injection_position", "pre_fusion")
-                )
+                ),
+                "tri_gate_cfg": dict(model_cfg.get("tri_gate", {}) or {}),
             }
 
         model = model_class(

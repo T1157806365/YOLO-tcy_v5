@@ -99,6 +99,8 @@ def run_stage(net,cfg,train_loader,val_loader,device,out,stage,nepoch,lr0,
         sampler=getattr(train_loader,'sampler',None)
         if hasattr(sampler,'set_epoch'):sampler.set_epoch(epoch+offset)
         optimizer.zero_grad(set_to_none=True)
+        _tri_updates = 0
+        _tri_amp_skips = 0
         sumloss=0.;counts=0;logitems={}
         from tqdm import tqdm
         it=tqdm(train_loader,disable=not is_main_process(),desc=f'{stage} {epoch}/{nepoch}')
@@ -139,22 +141,54 @@ def run_stage(net,cfg,train_loader,val_loader,device,out,stage,nepoch,lr0,
             if sync_now:
                 scaler.unscale_(optimizer)
                 if clip>0:torch.nn.utils.clip_grad_norm_(net.parameters(),clip)
+                _tri_scale_before = float(scaler.get_scale())
                 scaler.step(optimizer);scaler.update()
+                if float(scaler.get_scale()) < _tri_scale_before:
+                    _tri_amp_skips += 1
+                else:
+                    _tri_updates += 1
                 optimizer.zero_grad(set_to_none=True)
+        # Do not silently advance LR before a single successful optimizer step.
+        if _tri_updates == 0:
+            raise RuntimeError('Zero successful optimizer steps this epoch; AMP overflow suspected')
         scheduler.step()
         trainloss=distributed_mean(sumloss/max(1,counts),device)
         logitems=distributed_mean_dict(logitems,device)
         distributed_barrier()
-        metric=None
-        if is_main_process():
-            raw.eval()
+        # ATF_DDP_VALIDATION_ALL_RANKS_V1
+        # All ranks participate in validation forwards.
+        # Only rank0 records and broadcasts metrics.
+        pass
+        raw.eval()
+        # TRI_JOINT100_MONITOR_V2: collect per-image gate statistics during
+        # the EXISTING validation pass; no extra AP evaluation or loss change.
+        _tri_gate = getattr(raw.core, 'tri_gate', None)
+        _tri_acc = {}
+        _tri_seen = [0]
+        _tri_hook = None
+        if _tri_gate is not None:
+            def _tri_collect(module, inputs, output):
+                n = int(output.shape[0])
+                _tri_seen[0] += n
+                for key, value in module.last_stats.items():
+                    _tri_acc[key] = _tri_acc.get(key, 0.0) + n * float(value)
+            _tri_hook = _tri_gate.register_forward_hook(_tri_collect)
+        try:
             metric=validate_metrics(raw,val_loader,device,amp=amp,
                 conf_thres=.001,iou_thres=.7,max_det=300,preview_num=0)
-            geom=geometry_iou(raw,val_loader,device,amp=False,
-                max_images=int(cfg['monoalign'].get('alignment_val_images',96)))
-            metric.update(geom)
-            if mono_interval>0 and (epoch%mono_interval==0 or epoch==1):
-                metric.update(mono_metrics(raw,val_loader,device,amp))
+        finally:
+            if _tri_hook is not None:
+                _tri_hook.remove()
+        if _tri_seen[0] > 0:
+            metric.update({f'tri_{key}': value / _tri_seen[0]
+                           for key,value in _tri_acc.items()})
+        geom=geometry_iou(raw,val_loader,device,amp=False,
+            max_images=int(cfg['monoalign'].get('alignment_val_images',96)))
+        metric.update(geom)
+        if mono_interval>0 and (epoch%mono_interval==0 or epoch==1):
+            metric.update(mono_metrics(raw,val_loader,device,amp))
+        if not is_main_process():
+            metric = None
         metric=broadcast_all_ga_metrics(metric,device)
         score=float(metric['map5095'])
         giou=float(metric['align_iou'])
@@ -192,6 +226,31 @@ def run_stage(net,cfg,train_loader,val_loader,device,out,stage,nepoch,lr0,
                 best=best,global_best=global_best,joint_best=joint_best,
                 no_improve=count_bad,patience=patience,
                 mono_interval=mono_interval,latest_mono=latest_mono),flush=True)
+            # M2D_EPOCH_CONSOLE_V1: extra metrics; original report remains intact.
+            if 'm2d_intra_rgb' in logitems:
+                print('[M2D MONITOR] '
+                      f'epoch={epoch} '
+                      f'intra_rgb={logitems.get("m2d_intra_rgb", 0.):.5f} '
+                      f'intra_tir={logitems.get("m2d_intra_tir", 0.):.5f} '
+                      f'cross_rgb={logitems.get("m2d_cross_rgb", 0.):.5f} '
+                      f'cross_tir={logitems.get("m2d_cross_tir", 0.):.5f} '
+                      f'fused={logitems.get("m2d_fused", 0.):.5f} '
+                      f'valid={logitems.get("m2d_align_valid", 0.):.4f}',
+                      flush=True)
+            # Preserve original [stage1], Val geometry, Mono, KD and PCGrad
+            # output above. Additional information is labelled explicitly.
+            if 'tri_w_rgb' in metric:
+                print('[TRI MONITOR] '
+                      f'epoch={epoch} '
+                      f'w_rgb={metric["tri_w_rgb"]:.4f} '
+                      f'w_tir={metric["tri_w_tir"]:.4f} '
+                      f'w_hr={metric["tri_w_hr"]:.4f} '
+                      f'delta_abs={metric.get("tri_delta_abs", 0.0):.6f} '
+                      f'align_cond={metric.get("tri_alignment_cond_abs", 0.0):.6f}',
+                      flush=True)
+            print('[OPT MONITOR] '
+                  f'epoch={epoch} optimizer_updates(rank0)={_tri_updates} '
+                  f'amp_skipped(rank0)={_tri_amp_skips}',flush=True)
         distributed_barrier()
         # Do not let ordinary patience stop training BEFORE KD begins.
         minimum=int(cfg['monoalign'].get('minimum_stage1_epochs',130)) if stage=='stage1' else 0
@@ -225,8 +284,8 @@ def main():
         loc,glob,_=tr._resolve_batch_size(cfg,world)
         _,trainloader=tr._build_data(cfg,'train',True,True,
             batch_size=loc,distributed=world>1,rank=rank,world_size=world)
-        _,valloader=tr._build_data(cfg,'val',False,False,
-            batch_size=int(trcfg.get('val_batch',2)),distributed=False,rank=0,world_size=1) if is_main_process() else (None,None)
+        _,valloader=tr._build_data({**cfg,'train':{**cfg['train'],'workers':int(trcfg.get('val_workers',0))}},'val',False,False,
+            batch_size=int(trcfg.get('val_batch',2)),distributed=False,rank=0,world_size=1)
         student=build(cfg,device=device)
         # Teachers are not nn.Module children and are never optimized.
         # Teachers are loaded lazily when the stage schedule turns on KD.

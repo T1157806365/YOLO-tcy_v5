@@ -66,7 +66,13 @@ class AlignmentProtectedStudent(nn.Module):
     def attach_teachers(self,device):
         obj=self._teachers
         if obj is None:
-            obj=DualTeachers(self.cfg['dual_teachers'],int(self.core.scale_to_index[3]),device)
+            if bool(self.cfg.get('m2d_distill', {}).get('enabled', False)):
+                from m2d_distill.teachers import M2DTeacherPair
+                obj = M2DTeacherPair(
+                    self.cfg['dual_teachers'], self.core.scale_to_index,
+                    device, nc=int(self.nc))
+            else:
+                obj=DualTeachers(self.cfg['dual_teachers'],int(self.core.scale_to_index[3]),device)
             object.__setattr__(self,'_teachers',obj)
         return obj
 
@@ -92,6 +98,13 @@ class AlignmentProtectedStudent(nn.Module):
         """Piecewise weights follow requested 300+200 training protocol."""
         # Optional controlled ablation: start mono gently, leave KD/stage2 unchanged.
         mode = self.cfg.get('monoalign', {}).get('schedule_mode', 'original')
+        # M2D_DISTILL_JOINT100_V1: ONE training stage, KD starts from epoch 1.
+        # This is a smooth loss-weight ramp, NOT staged pretraining.
+        if mode == 'm2d_joint100' and self.stage == 'stage1':
+            e = int(self.epoch)
+            mono = 0.10 * min(1.0, e / 30.0)
+            kd = 0.02 * min(1.0, e / 10.0)
+            return float(mono), float(kd)
         # Short-run mode: early mono and gradual KD.
         if mode == 'single100_step_v1' and self.stage == 'stage1':
             e = int(self.epoch)
@@ -229,7 +242,30 @@ class AlignmentProtectedStudent(nn.Module):
         # KD only after warmup, its teachers never participate in inference.
         kd=det*0.
         kr=kd;kt=kd; rgb_rate=0.;tir_rate=0.
-        if wk>0:
+        m2d_extra = {}
+        if wk>0 and bool(self.cfg.get('m2d_distill', {}).get('enabled', False)):
+            if self._teachers is None:
+                raise RuntimeError('M2D teachers not initialized; attach_teachers first')
+            with torch.no_grad():
+                teacher_pyramids = self._teachers.get(batch)
+            from m2d_distill.losses import calculate as calculate_m2d
+            d = calculate_m2d(
+                features, teacher_pyramids, batch,
+                self.cfg['m2d_distill'], core.scale_to_index)
+            # Keep original weighted KD logging and PCGrad feature hooks.
+            kd = float(wk) * bsz * d['total']
+            kr,kt = d['im_rgb'],d['im_tir']
+            rgb_rate=float(d['rgb_teacher_correct'].item())
+            tir_rate=float(d['tir_teacher_correct'].item())
+            m2d_extra = {
+                'm2d_intra_rgb': d['im_rgb'].detach(),
+                'm2d_intra_tir': d['im_tir'].detach(),
+                'm2d_cross_rgb': d['cm_rgb'].detach(),
+                'm2d_cross_tir': d['cm_tir'].detach(),
+                'm2d_fused': d['fused'].detach(),
+                'm2d_align_valid': d['align_valid_ratio'].detach(),
+            }
+        elif wk>0:
             teachers=self._teachers
             if teachers is None:
                 raise RuntimeError('Training with KD requires student.attach_teachers(device)')
@@ -263,5 +299,5 @@ class AlignmentProtectedStudent(nn.Module):
                      'teacher_rgb_selected':rgb_rate,
                      'teacher_tir_selected':tir_rate,
                      'weight_mono':wm,'weight_kd':wk,
-                     **diags})
+                     **m2d_extra,**diags})
         return total, logs

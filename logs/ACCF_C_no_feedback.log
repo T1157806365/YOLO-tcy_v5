@@ -1,0 +1,15 @@
+nohup: 忽略输入
+Traceback (most recent call last):
+  File "/mnt/sda/taochangyong/.conda/envs/tcy/lib/python3.10/runpy.py", line 196, in _run_module_as_main
+    return _run_code(code, main_globals, None,
+  File "/mnt/sda/taochangyong/.conda/envs/tcy/lib/python3.10/runpy.py", line 86, in _run_code
+    exec(code, run_globals)
+  File "/mnt/sda/taochangyong/Projects/Model/YOLO-tcy_v5/ga_monoalign_pcgrad/train.py", line 263, in <module>
+    if __name__=='__main__':main()
+  File "/mnt/sda/taochangyong/Projects/Model/YOLO-tcy_v5/ga_monoalign_pcgrad/train.py", line 222, in main
+    device,rank,local_rank,world=setup_distributed(cfg['train']['device'])
+  File "/mnt/sda/taochangyong/Projects/Model/YOLO-tcy_v5/engine/runtime.py", line 127, in setup_distributed
+    return select_device(device_spec), 0, 0, 1
+  File "/mnt/sda/taochangyong/Projects/Model/YOLO-tcy_v5/engine/runtime.py", line 114, in select_device
+    raise ValueError(
+ValueError: Invalid CUDA device 6; available=0..0

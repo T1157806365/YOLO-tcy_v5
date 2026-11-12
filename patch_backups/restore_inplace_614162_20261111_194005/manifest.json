@@ -1,0 +1,14 @@
+{
+  "root": "/mnt/sda/taochangyong/Projects/Model/YOLO-tcy_v5",
+  "base": "7d87ee5efbeaf1bac11176ad7fc3439ebc91829e",
+  "checkpoint": "/mnt/sda/taochangyong/Projects/Model/YOLO-tcy_v5/runs/ga_bhlr_placement_6116/yolo26m_UAVCB_dualTeacherInit_post_fusion_single100_seed0/weights/best.pt",
+  "changed": [
+    "engine/evaluator.py",
+    "ga_monoalign_pcgrad/model.py",
+    "ga_monoalign_pcgrad/train.py",
+    "ga_monoalign_pcgrad/val.py",
+    "models/gtga_bhlr_factory.py",
+    "models/rgbt_rlsfa_gtga_centered_bhlr_model.py"
+  ],
+  "created": []
+}

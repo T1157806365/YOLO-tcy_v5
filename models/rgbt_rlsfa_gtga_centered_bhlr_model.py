@@ -87,6 +87,7 @@ class RGBTRLSFAGTGACenteredBHLRV2DetectionModel(RGBTDetectionModel):
         bhlr_guidance_mode: str = "alignment",
         bhlr_detach_alignment_guidance: bool = True,
         bhlr_injection_position: str = "pre_fusion",
+        tri_gate_cfg: Optional[Dict[str, Any]] = None,
         verbose: bool = True,
         **legacy_kwargs,
     ):
@@ -293,6 +294,25 @@ class RGBTRLSFAGTGACenteredBHLRV2DetectionModel(RGBTDetectionModel):
                     adapter.fallback.target_head.requires_grad_(False)
                     adapter.external_rgb_adapter.requires_grad_(False)
                     adapter.external_tir_adapter.requires_grad_(False)
+
+        # Optional P3 tri-branch attention; strictly disabled in old checkpoints.
+        self.tri_gate_cfg = dict(tri_gate_cfg or {})
+        self.tri_gate_enabled = bool(self.tri_gate_cfg.get("enabled", False))
+        self.tri_gate = None
+        if self.tri_gate_enabled:
+            if self.bhlr_injection_position != "post_fusion" or not self.bhlr_enabled:
+                raise ValueError("tri_gate requires Post-Fusion BHLR enabled")
+            if not self.alignment_enabled:
+                raise ValueError("tri_gate requires RLSFA-GTGA alignment enabled")
+            from tri_fusion.attention import AlignmentAwareTriGate
+            p3_layer = int(self.scale_to_index[3])
+            p3_channels = self._infer_any_layer_channels([p3_layer])[p3_layer]["rgb"]
+            self.tri_gate = AlignmentAwareTriGate(
+                channels=int(p3_channels),
+                mode=str(self.tri_gate_cfg.get("mode", "align_rgb_tir_hr")),
+                hidden=int(self.tri_gate_cfg.get("hidden", 24)),
+                max_change=float(self.tri_gate_cfg.get("max_change", 1.0)),
+            )
 
         # Historical logging compatibility.
         self.rsdt = self.bhlr
@@ -528,6 +548,10 @@ class RGBTRLSFAGTGACenteredBHLRV2DetectionModel(RGBTDetectionModel):
             fused_outputs, fusion_features = self.fuse_backbone_features(
                 rgb_outputs, aligned_tir
             )
+            # Capture EXACT P3 RGB+TIR result before original BHLR injection.
+            _tri_p3_pre_hr = (
+                fused_outputs[self.scale_to_index[3]] if self.tri_gate_enabled else None
+            )
         else:
             fused_outputs, fusion_features = None, None
 
@@ -660,6 +684,28 @@ class RGBTRLSFAGTGACenteredBHLRV2DetectionModel(RGBTDetectionModel):
             for scale in self.bhlr_scales:
                 layer_id = self.scale_to_index[scale]
                 fusion_features[layer_id] = fused_outputs[layer_id]
+
+        # Original Post-Fusion BHLR has already produced the full P3 tensor.
+        # Decompose without changing any historical branch:
+        # RGB = original raw RGB P3
+        # TIR = exact pre-BHLR fusion P3 - RGB P3
+        # HR  = post-BHLR P3 - pre-BHLR P3.
+        if self.tri_gate_enabled:
+            if not use_bhlr or _tri_p3_pre_hr is None:
+                raise RuntimeError("Tri-gate requires RGB-high != RGB-semantic and active BHLR")
+            p3i = int(self.scale_to_index[3])
+            rgb_term = rgb_outputs[p3i]
+            tir_term = _tri_p3_pre_hr - rgb_term
+            hr_term = fused_outputs[p3i] - _tri_p3_pre_hr
+            fused_outputs[p3i] = self.tri_gate(
+                baseline=fused_outputs[p3i],
+                rgb_term=rgb_term,
+                tir_term=tir_term,
+                hr_delta=hr_term,
+                alignment_info=alignment_info,
+            )
+            # Neck consumes fused_outputs; keep debugger's fusion_features in sync.
+            fusion_features[p3i] = fused_outputs[p3i]
 
         result = {
             "rgb_backbone": rgb_outputs,

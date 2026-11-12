@@ -1,0 +1,129 @@
+nohup: 忽略输入
+
+============================================================
+RGB-T Paired Dataset
+============================================================
+Split        : train
+RGB YAML     : /mnt/sda/taochangyong/Projects/Model/YOLO-tcy_v5/configs/datasets/UAV-CB-RGB.yaml
+TIR YAML     : /mnt/sda/taochangyong/Projects/Model/YOLO-tcy_v5/configs/datasets/UAV-CB-TIR.yaml
+RGB images   : 2032
+TIR images   : 2032
+Pairs        : 2032
+Missing TIR  : 0
+Missing RGB  : 0
+Pair mode    : relative
+RGB imgsz    : (1920, 1920)
+TIR imgsz    : (640, 640)
+TIR channels : 3
+Classes      : 1
+============================================================
+
+RSD-T RGB high: (1920, 1920)
+RSD-T RGB semantic: (640, 640)
+
+============================================================
+RGB-T Paired Dataset
+============================================================
+Split        : val
+RGB YAML     : /mnt/sda/taochangyong/Projects/Model/YOLO-tcy_v5/configs/datasets/UAV-CB-RGB.yaml
+TIR YAML     : /mnt/sda/taochangyong/Projects/Model/YOLO-tcy_v5/configs/datasets/UAV-CB-TIR.yaml
+RGB images   : 679
+TIR images   : 679
+Pairs        : 679
+Missing TIR  : 0
+Missing RGB  : 0
+Pair mode    : relative
+RGB imgsz    : (1920, 1920)
+TIR imgsz    : (640, 640)
+TIR channels : 3
+Classes      : 1
+============================================================
+
+RSD-T RGB high: (1920, 1920)
+RSD-T RGB semantic: (640, 640)
+Overriding model.yaml nc=80 with nc=1
+Overriding model.yaml nc=80 with nc=1
+[TEACHER-INIT PASS] RGB full backbone+neck+head: 768 state keys, 21,774,430 parameters
+[TEACHER-INIT PASS] RGB auxiliary neck+head: 468 state keys, 11,422,238 parameters
+[TEACHER-INIT PASS] TIR backbone: 300 state keys, 10,352,192 parameters
+[TEACHER-INIT PASS] TIR auxiliary neck+head: 468 state keys, 11,422,238 parameters
+[TEACHER-INIT DONE] Student initialized from the two UAV-CB teachers. GMLS/DMLS, BHLR, fusion remain independently initialized.
+[TRAIN] rank=0, device=cuda:0, batch/rank=16, global batch=16, accumulate=4, GMLS-v2 original FULL, official YOLO pretrained=True
+
+==============================================================================================
+stage1 training | GA-MonoAlign-PCGrad (GMLS-v2 preserved)
+==============================================================================================
+epochs: 100 | lr0: 0.005 | lrf: 0.01 | patience: 20
+RGB high/semantic/TIR: 1920/640/640
+GMLS=True | GMLS-v2 routing=True | Fine=True | BHLR=True
+Official YOLO pretrained=True | student warm start=None | student resume=None
+Train: box / cls / dfl + original alignment + auxiliary detection + teacher KD
+Val: fusion AP every epoch; RGB/TIR auxiliary AP periodically; geometry on subset
+==============================================================================================
+stage1 1/100:   0%|          | 0/127 [00:00<?, ?it/s]stage1 1/100:   0%|          | 0/127 [00:02<?, ?it/s]
+Traceback (most recent call last):
+  File "/mnt/sda/taochangyong/.conda/envs/tcy/lib/python3.10/runpy.py", line 196, in _run_module_as_main
+    return _run_code(code, main_globals, None,
+  File "/mnt/sda/taochangyong/.conda/envs/tcy/lib/python3.10/runpy.py", line 86, in _run_code
+    exec(code, run_globals)
+  File "/mnt/sda/taochangyong/Projects/Model/YOLO-tcy_v5/ga_monoalign_pcgrad/train.py", line 263, in <module>
+    if __name__=='__main__':main()
+  File "/mnt/sda/taochangyong/Projects/Model/YOLO-tcy_v5/ga_monoalign_pcgrad/train.py", line 241, in main
+    one=run_stage(net,cfg,trainloader,valloader,device,output,'stage1',int(trcfg['epochs']),
+  File "/mnt/sda/taochangyong/Projects/Model/YOLO-tcy_v5/ga_monoalign_pcgrad/train.py", line 125, in run_stage
+    loss_vec,log=net(batch)
+  File "/mnt/sda/taochangyong/.conda/envs/tcy/lib/python3.10/site-packages/torch/nn/modules/module.py", line 1739, in _wrapped_call_impl
+    return self._call_impl(*args, **kwargs)
+  File "/mnt/sda/taochangyong/.conda/envs/tcy/lib/python3.10/site-packages/torch/nn/modules/module.py", line 1750, in _call_impl
+    return forward_call(*args, **kwargs)
+  File "/mnt/sda/taochangyong/Projects/Model/YOLO-tcy_v5/ga_monoalign_pcgrad/model.py", line 77, in forward
+    if isinstance(rgb,dict):return self.loss(rgb)
+  File "/mnt/sda/taochangyong/Projects/Model/YOLO-tcy_v5/ga_monoalign_pcgrad/model.py", line 208, in loss
+    features=core.forward_features(batch['rgb_img'],batch['tir_img'],
+  File "/mnt/sda/taochangyong/Projects/Model/YOLO-tcy_v5/models/rgbt_rlsfa_gtga_centered_bhlr_model.py", line 504, in forward_features
+    raw_rgb = list(self.forward_rgb_backbone(rgb_semantic))
+  File "/mnt/sda/taochangyong/Projects/Model/YOLO-tcy_v5/models/rgbt_model.py", line 1162, in forward_rgb_backbone
+    self._run_layers(
+  File "/mnt/sda/taochangyong/Projects/Model/YOLO-tcy_v5/models/rgbt_model.py", line 1130, in _run_layers
+    x = module(
+  File "/mnt/sda/taochangyong/.conda/envs/tcy/lib/python3.10/site-packages/torch/nn/modules/module.py", line 1739, in _wrapped_call_impl
+    return self._call_impl(*args, **kwargs)
+  File "/mnt/sda/taochangyong/.conda/envs/tcy/lib/python3.10/site-packages/torch/nn/modules/module.py", line 1750, in _call_impl
+    return forward_call(*args, **kwargs)
+  File "/mnt/sda/taochangyong/.conda/envs/tcy/lib/python3.10/site-packages/ultralytics/nn/modules/block.py", line 312, in forward
+    y.extend(m(y[-1]) for m in self.m)
+  File "/mnt/sda/taochangyong/.conda/envs/tcy/lib/python3.10/site-packages/ultralytics/nn/modules/block.py", line 312, in <genexpr>
+    y.extend(m(y[-1]) for m in self.m)
+  File "/mnt/sda/taochangyong/.conda/envs/tcy/lib/python3.10/site-packages/torch/nn/modules/module.py", line 1739, in _wrapped_call_impl
+    return self._call_impl(*args, **kwargs)
+  File "/mnt/sda/taochangyong/.conda/envs/tcy/lib/python3.10/site-packages/torch/nn/modules/module.py", line 1750, in _call_impl
+    return forward_call(*args, **kwargs)
+  File "/mnt/sda/taochangyong/.conda/envs/tcy/lib/python3.10/site-packages/ultralytics/nn/modules/block.py", line 346, in forward
+    return self.cv3(torch.cat((self.m(self.cv1(x)), self.cv2(x)), 1))
+  File "/mnt/sda/taochangyong/.conda/envs/tcy/lib/python3.10/site-packages/torch/nn/modules/module.py", line 1739, in _wrapped_call_impl
+    return self._call_impl(*args, **kwargs)
+  File "/mnt/sda/taochangyong/.conda/envs/tcy/lib/python3.10/site-packages/torch/nn/modules/module.py", line 1750, in _call_impl
+    return forward_call(*args, **kwargs)
+  File "/mnt/sda/taochangyong/.conda/envs/tcy/lib/python3.10/site-packages/torch/nn/modules/container.py", line 250, in forward
+    input = module(input)
+  File "/mnt/sda/taochangyong/.conda/envs/tcy/lib/python3.10/site-packages/torch/nn/modules/module.py", line 1739, in _wrapped_call_impl
+    return self._call_impl(*args, **kwargs)
+  File "/mnt/sda/taochangyong/.conda/envs/tcy/lib/python3.10/site-packages/torch/nn/modules/module.py", line 1750, in _call_impl
+    return forward_call(*args, **kwargs)
+  File "/mnt/sda/taochangyong/.conda/envs/tcy/lib/python3.10/site-packages/ultralytics/nn/modules/block.py", line 482, in forward
+    return x + self.cv2(self.cv1(x)) if self.add else self.cv2(self.cv1(x))
+  File "/mnt/sda/taochangyong/.conda/envs/tcy/lib/python3.10/site-packages/torch/nn/modules/module.py", line 1739, in _wrapped_call_impl
+    return self._call_impl(*args, **kwargs)
+  File "/mnt/sda/taochangyong/.conda/envs/tcy/lib/python3.10/site-packages/torch/nn/modules/module.py", line 1750, in _call_impl
+    return forward_call(*args, **kwargs)
+  File "/mnt/sda/taochangyong/.conda/envs/tcy/lib/python3.10/site-packages/ultralytics/nn/modules/conv.py", line 78, in forward
+    return self.act(self.bn(self.conv(x)))
+  File "/mnt/sda/taochangyong/.conda/envs/tcy/lib/python3.10/site-packages/torch/nn/modules/module.py", line 1739, in _wrapped_call_impl
+    return self._call_impl(*args, **kwargs)
+  File "/mnt/sda/taochangyong/.conda/envs/tcy/lib/python3.10/site-packages/torch/nn/modules/module.py", line 1750, in _call_impl
+    return forward_call(*args, **kwargs)
+  File "/mnt/sda/taochangyong/.conda/envs/tcy/lib/python3.10/site-packages/torch/nn/modules/batchnorm.py", line 193, in forward
+    return F.batch_norm(
+  File "/mnt/sda/taochangyong/.conda/envs/tcy/lib/python3.10/site-packages/torch/nn/functional.py", line 2822, in batch_norm
+    return torch.batch_norm(
+torch.OutOfMemoryError: CUDA out of memory. Tried to allocate 26.00 MiB. GPU 0 has a total capacity of 47.37 GiB of which 20.00 MiB is free. Process 2822866 has 44.24 GiB memory in use. Including non-PyTorch memory, this process has 3.08 GiB memory in use. Of the allocated memory 2.60 GiB is allocated by PyTorch, and 32.72 MiB is reserved by PyTorch but unallocated. If reserved but unallocated memory is large try setting PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True to avoid fragmentation.  See documentation for Memory Management  (https://pytorch.org/docs/stable/notes/cuda.html#environment-variables)

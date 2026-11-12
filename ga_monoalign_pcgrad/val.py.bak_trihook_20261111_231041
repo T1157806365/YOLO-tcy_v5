@@ -1,0 +1,90 @@
+"""Strict validation of new student and two single-modal auxiliary heads."""
+from __future__ import annotations
+import argparse,json
+import torch
+from pathlib import Path
+from datasets.dual_resolution_rgbt_dataset import build_dual_resolution_dataset,build_dual_resolution_dataloader
+from engine.runtime import select_device
+from engine.evaluator import validate_metrics
+from .factory import load_checkpoint
+from .metrics import mono_metrics,geometry_iou
+
+
+def main():
+    p=argparse.ArgumentParser()
+    p.add_argument('--weights',required=True)
+    p.add_argument('--split',default='test',choices=['train','val','test'])
+    p.add_argument('--device',default='0');p.add_argument('--batch',type=int,default=2)
+    p.add_argument('--workers',type=int,default=4)
+    p.add_argument('--conf',type=float,default=.001);p.add_argument('--iou',type=float,default=.70)
+    p.add_argument('--save-dir',default=None)
+    p.add_argument('--geometry-all',action='store_true',help='Calculate alignment IoU on entire split')
+    # TRI_JOINT100_VAL_V2: optional fixed-checkpoint P3 attention ablations.
+    p.add_argument('--tri-ablation',default='none',
+                   choices=['none','off','rgb_off','tir_off','hr_off','no_alignment'])
+    p.add_argument(
+        "--bhlr-injection-position",
+        default="checkpoint",
+        choices=("checkpoint", "pre_fusion", "post_fusion"),
+        help="For same-weight counterfactual tests only; does not change checkpoint",
+    )
+    p.add_argument(
+        "--disable-bhlr-residual",
+        action="store_true",
+        help="Zero BHLR gamma in-memory, leaving all other weights intact",
+    )
+    args=p.parse_args()
+    device=select_device(args.device)
+    model,ck,cfg=load_checkpoint(args.weights,device)
+    _tri_gate = getattr(model.core, 'tri_gate', None)
+    if args.tri_ablation != 'none' and _tri_gate is None:
+        raise ValueError('No tri_gate in checkpoint; cannot ablate attention')
+    _tri_sums, _tri_seen, _tri_hook = {}, [0], None
+    if _tri_gate is not None:
+        _tri_gate.ablation = args.tri_ablation
+        def _tri_collect(module, inputs, output):
+            n=int(inputs[0].shape[0]); _tri_seen[0] += n
+            for key, value in module.last_stats.items():
+                _tri_sums[key] = _tri_sums.get(key, 0.0) + n * float(value)
+        _tri_hook = _tri_gate.register_forward_hook(_tri_collect)
+    if args.bhlr_injection_position != "checkpoint":
+        model.core.bhlr_injection_position = args.bhlr_injection_position
+    if args.disable_bhlr_residual:
+        if model.core.bhlr is None:
+            raise RuntimeError("Checkpoint has no BHLR module to disable")
+        with torch.no_grad():
+            for adapter in model.core.bhlr.adapters.values():
+                adapter.gamma_raw.zero_()
+    print("[ABLATION] BHLR injection:", model.core.bhlr_injection_position,
+          "residual_off:", args.disable_bhlr_residual, flush=True)
+    d=cfg['data']
+    data=build_dual_resolution_dataset(rgb_yaml=d['rgb'],tir_yaml=d['tir'],split=args.split,
+        rgb_high_imgsz=int(d['rgb_imgsz']),rgb_semantic_imgsz=int(d['rgb_semantic_imgsz']),
+        tir_imgsz=int(d['tir_imgsz']),pair_mode=d.get('pair_mode','relative'),
+        augment=False,tir_channels=3,strict_pair=True)
+    loader=build_dual_resolution_dataloader(data,batch_size=args.batch,workers=args.workers,
+        shuffle=False,pin_memory=device.type=='cuda')
+    try:
+        main=validate_metrics(model,loader,device,amp=device.type=='cuda',
+            conf_thres=args.conf,iou_thres=args.iou,max_det=300,preview_num=0)
+    finally:
+        if _tri_hook is not None:
+            _tri_hook.remove()
+    mono=mono_metrics(model,loader,device,amp=device.type=='cuda')
+    geom=geometry_iou(model,loader,device,max_images=len(data) if args.geometry_all else 96)
+    res={'split':args.split,'checkpoint':str(Path(args.weights).resolve()),
+         'bhlr_injection_position':model.core.bhlr_injection_position,
+         'bhlr_residual_disabled':bool(args.disable_bhlr_residual),
+         'student_scratch':True,'gmlsv2':True,**main,**mono,**geom}
+    if _tri_gate is not None:
+        res.update({'tri_ablation': args.tri_ablation, 'tri_mode': _tri_gate.mode,
+                    'tri_gate_images': int(_tri_seen[0]),
+                    **{f'tri_{k}': v/max(1,_tri_seen[0]) for k,v in _tri_sums.items()}})
+    path=Path(args.save_dir) if args.save_dir else Path(args.weights).resolve().parent.parent/f'val_{args.split}_monoalign'
+    if path.exists() and (path/'metrics.json').exists():
+        raise FileExistsError(f'Refusing to overwrite metrics: {path}/metrics.json')
+    path.mkdir(parents=True,exist_ok=True)
+    (path/'metrics.json').write_text(json.dumps(res,ensure_ascii=False,indent=2),encoding='utf-8')
+    print(json.dumps(res,ensure_ascii=False,indent=2))
+
+if __name__=='__main__':main()

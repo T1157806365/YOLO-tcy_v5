@@ -1,76 +1,5 @@
 """Strict validation of new student and two single-modal auxiliary heads."""
 from __future__ import annotations
-
-# PHYSICAL_GPU_VAL_BEGIN
-# --device N 始终对应 nvidia-smi 中的物理 GPU N
-# 必须在 torch 和项目模块导入之前执行
-
-import os as _gpu_os
-import sys as _gpu_sys
-import subprocess as _gpu_subprocess
-
-
-def _configure_physical_gpu():
-    args = _gpu_sys.argv[1:]
-    requested = "0"
-
-    for i, arg in enumerate(args):
-        if arg == "--device" and i + 1 < len(args):
-            requested = args[i + 1]
-            break
-        if arg.startswith("--device="):
-            requested = arg.split("=", 1)[1]
-            break
-
-    if requested.lower() == "cpu":
-        _gpu_os.environ["CUDA_VISIBLE_DEVICES"] = ""
-        return "cpu"
-
-    if not requested.isdigit():
-        raise ValueError(
-            f"--device 必须是物理 GPU 编号或 cpu，收到: {requested}"
-        )
-
-    physical_id = int(requested)
-
-    output = _gpu_subprocess.check_output(
-        [
-            "nvidia-smi",
-            "--query-gpu=index,uuid",
-            "--format=csv,noheader",
-        ],
-        text=True,
-    )
-
-    gpu_map = {}
-    for line in output.strip().splitlines():
-        index, uuid = [x.strip() for x in line.split(",", 1)]
-        gpu_map[int(index)] = uuid
-
-    if physical_id not in gpu_map:
-        raise RuntimeError(
-            f"物理 GPU {physical_id} 不存在，可用编号: {sorted(gpu_map)}"
-        )
-
-    # 用 UUID 锁定物理 GPU，避免 CUDA 与 nvidia-smi 顺序不一致
-    _gpu_os.environ["CUDA_VISIBLE_DEVICES"] = gpu_map[physical_id]
-
-    print(
-        f"[PHYSICAL GPU] {physical_id} -> "
-        f"{gpu_map[physical_id]} -> cuda:0",
-        flush=True,
-    )
-
-    return "0"
-
-
-_PHYSICAL_VAL_DEVICE = (
-    _configure_physical_gpu()
-    if __name__ == "__main__"
-    else "0"
-)
-# PHYSICAL_GPU_VAL_END
-
 import argparse,json
 import torch
 from pathlib import Path
@@ -90,6 +19,9 @@ def main():
     p.add_argument('--conf',type=float,default=.001);p.add_argument('--iou',type=float,default=.70)
     p.add_argument('--save-dir',default=None)
     p.add_argument('--geometry-all',action='store_true',help='Calculate alignment IoU on entire split')
+    # TRI_JOINT100_VAL_V2: optional fixed-checkpoint P3 attention ablations.
+    p.add_argument('--tri-ablation',default='none',
+                   choices=['none','off','rgb_off','tir_off','hr_off','no_alignment'])
     p.add_argument(
         "--bhlr-injection-position",
         default="checkpoint",
@@ -102,8 +34,19 @@ def main():
         help="Zero BHLR gamma in-memory, leaving all other weights intact",
     )
     args=p.parse_args()
-    device=select_device(_PHYSICAL_VAL_DEVICE)
+    device=select_device(args.device)
     model,ck,cfg=load_checkpoint(args.weights,device)
+    _tri_gate = getattr(model.core, 'tri_gate', None)
+    if args.tri_ablation != 'none' and _tri_gate is None:
+        raise ValueError('No tri_gate in checkpoint; cannot ablate attention')
+    _tri_sums, _tri_seen, _tri_hook = {}, [0], None
+    if _tri_gate is not None:
+        _tri_gate.ablation = args.tri_ablation
+        def _tri_collect(module, inputs, output):
+            n=int(output.shape[0]); _tri_seen[0] += n
+            for key, value in module.last_stats.items():
+                _tri_sums[key] = _tri_sums.get(key, 0.0) + n * float(value)
+        _tri_hook = _tri_gate.register_forward_hook(_tri_collect)
     if args.bhlr_injection_position != "checkpoint":
         model.core.bhlr_injection_position = args.bhlr_injection_position
     if args.disable_bhlr_residual:
@@ -121,19 +64,48 @@ def main():
         augment=False,tir_channels=3,strict_pair=True)
     loader=build_dual_resolution_dataloader(data,batch_size=args.batch,workers=args.workers,
         shuffle=False,pin_memory=device.type=='cuda')
-    main=validate_metrics(model,loader,device,amp=device.type=='cuda',
-        conf_thres=args.conf,iou_thres=args.iou,max_det=300,preview_num=0)
+    try:
+        main=validate_metrics(model,loader,device,amp=device.type=='cuda',
+            conf_thres=args.conf,iou_thres=args.iou,max_det=300,preview_num=0)
+    finally:
+        if _tri_hook is not None:
+            _tri_hook.remove()
     mono=mono_metrics(model,loader,device,amp=device.type=='cuda')
     geom=geometry_iou(model,loader,device,max_images=len(data) if args.geometry_all else 96)
     res={'split':args.split,'checkpoint':str(Path(args.weights).resolve()),
          'bhlr_injection_position':model.core.bhlr_injection_position,
          'bhlr_residual_disabled':bool(args.disable_bhlr_residual),
          'student_scratch':True,'gmlsv2':True,**main,**mono,**geom}
-    path=Path(args.save_dir) if args.save_dir else Path(args.weights).resolve().parent.parent/f'val_{args.split}_monoalign'
-    if path.exists() and (path/'metrics.json').exists():
-        raise FileExistsError(f'Refusing to overwrite metrics: {path}/metrics.json')
-    path.mkdir(parents=True,exist_ok=True)
-    (path/'metrics.json').write_text(json.dumps(res,ensure_ascii=False,indent=2),encoding='utf-8')
-    print(json.dumps(res,ensure_ascii=False,indent=2))
+    if _tri_gate is not None:
+        res.update({'tri_ablation': args.tri_ablation, 'tri_mode': _tri_gate.mode,
+                    'tri_gate_images': int(_tri_seen[0]),
+                    **{f'tri_{k}': v/max(1,_tri_seen[0]) for k,v in _tri_sums.items()}})
+
+    # 自动保存到权重所在目录，允许覆盖
+    weight_path = Path(args.weights).expanduser().resolve()
+
+    if args.save_dir:
+        save_dir = Path(args.save_dir).expanduser().resolve()
+        output_file = save_dir / "metrics.json"
+    else:
+        save_dir = weight_path.parent
+        output_file = save_dir / f"{weight_path.stem}_{args.split}_metrics.json"
+
+    save_dir.mkdir(parents=True, exist_ok=True)
+
+    # 原子替换，避免写入中断导致旧结果损坏
+    import os
+    tmp_file = output_file.with_name(
+        f".{output_file.name}.{os.getpid()}.tmp"
+    )
+
+    tmp_file.write_text(
+        json.dumps(res, ensure_ascii=False, indent=2),
+        encoding="utf-8"
+    )
+    os.replace(tmp_file, output_file)
+
+    print(f"[VAL SAVED] {output_file}")
+    print(json.dumps(res, ensure_ascii=False, indent=2))
 
 if __name__=='__main__':main()
