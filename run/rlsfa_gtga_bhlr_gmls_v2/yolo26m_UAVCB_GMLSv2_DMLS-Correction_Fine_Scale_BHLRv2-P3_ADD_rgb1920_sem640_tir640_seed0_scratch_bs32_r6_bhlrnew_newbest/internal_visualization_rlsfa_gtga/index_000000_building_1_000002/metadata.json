@@ -1,0 +1,86 @@
+{
+  "index": 0,
+  "rgb_path": "/mnt/sda/taochangyong/Projects/datasets/UAV-CB/RGB/images/test/building_1_000002.jpg",
+  "tir_path": "/mnt/sda/taochangyong/Projects/datasets/UAV-CB/TIR/images/test/building_1_000002.jpg",
+  "coarse_anchor": {
+    "pred_rgb_anchor": [
+      0.634708046913147,
+      0.5978436470031738
+    ],
+    "source_center": [
+      0.6502856612205505,
+      0.5898053050041199
+    ],
+    "pivot_invariance_error": 0.0
+  },
+  "translation": {
+    "coarse_dx_p3": 1.0666615962982178,
+    "coarse_dy_p3": -0.9730901718139648,
+    "coarse_confidence": 0.3616396486759186,
+    "fine_dx_p3": 0.16396792232990265,
+    "fine_dy_p3": 0.3380594253540039,
+    "fine_confidence": 0.2412385493516922,
+    "final_dx_p3": 1.230629563331604,
+    "final_dy_p3": -0.6350307464599609,
+    "coarse_probability": {
+      "pmax": 0.011242803186178207,
+      "p2": 0.009376846253871918,
+      "max_over_uniform": 18.899152755737305,
+      "top1_over_top2": 1.1989961862564087,
+      "entropy_norm": 0.9750742316246033,
+      "effective_candidates": 1396.908405960245
+    }
+  },
+  "gtga_scale": {
+    "pred_sampling_scale": [
+      1.448621153831482,
+      1.6183149814605713
+    ],
+    "raw_local_sigma_ratio": [
+      1.448621153831482,
+      1.6183149814605713
+    ],
+    "bbox_gt_sampling_scale": [
+      1.209154725074768,
+      1.0683900117874146
+    ],
+    "rgb_sigma": [
+      0.05727821961045265,
+      0.0539734922349453
+    ],
+    "tir_sigma": [
+      0.08297444134950638,
+      0.08734611421823502
+    ],
+    "local_window_sigma": 0.1,
+    "moment_border_margin": 2
+  },
+  "alignment_effect": {
+    "bbox_iou_before": 0.11950145881993486,
+    "bbox_iou_coarse_translation": 0.6383153333119291,
+    "bbox_iou_coarse_plus_fine": 0.7401975169932226,
+    "bbox_iou_final_scale": 0.5510552031930435,
+    "coarse_gain": 0.5188138744919942,
+    "fine_additional_gain": 0.10188218368129343,
+    "scale_additional_gain": -0.1891423138001791,
+    "total_gain": 0.4315537443731086
+  },
+  "targetness": {
+    "coarse": "min/mean/max=0.000/0.026/1.000; std=0.047; H=0.893; q99=0.139; inside=0.846; outside=0.025; in/out=33.55",
+    "rgb_raw": "min/mean/max=0.017/0.253/1.000; std=0.063; H=0.997; q99=0.413; inside=0.646; outside=0.253; in/out=2.56",
+    "rgb_local": "min/mean/max=0.000/0.014/0.995; std=0.052; H=0.761; q99=0.199; inside=0.641; outside=0.013; in/out=47.86",
+    "tir_raw": "min/mean/max=0.001/0.314/0.558; std=0.089; H=0.995; q99=0.497; inside=0.036; outside=0.315; in/out=0.11",
+    "tir_local": "min/mean/max=0.000/0.017/0.335; std=0.046; H=0.798; q99=0.232; inside=0.035; outside=0.017; in/out=2.04"
+  },
+  "alignment_guidance_to_bhlr": {
+    "enabled": true,
+    "formula": "sqrt(A_RGB_local * A_TIR_local_aligned)",
+    "source": "external",
+    "transfer_mae": 0.0006853890372440219,
+    "transfer_max_abs": 0.02173706889152527,
+    "verified": false
+  },
+  "displayed_predictions": 1,
+  "displayed_predictions_before_bhlr": 1,
+  "displayed_predictions_after_bhlr": 1
+}

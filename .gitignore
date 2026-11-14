@@ -1,0 +1,19 @@
+
+# Training results
+/runs/
+
+# Pretrained weights
+/configs/weights/
+
+# All model weights
+*.pt
+*.pth
+*.ckpt
+*.onnx
+*.engine
+*.safetensors
+
+# Python cache
+__pycache__/
+*.pyc
+.pytest_cache/

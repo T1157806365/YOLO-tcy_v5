@@ -1,0 +1,10 @@
+Name: ultralytics
+Version: 8.4.118
+Summary: Ultralytics YOLO 🚀 for SOTA object detection, multi-object tracking, instance segmentation, pose estimation, classification, and oriented object detection.
+Home-page: https://ultralytics.com
+Author: 
+Author-email: Glenn Jocher <glenn.jocher@ultralytics.com>, Jing Qiu <jing.qiu@ultralytics.com>
+License: AGPL-3.0
+Location: /mnt/sda/taochangyong/.conda/envs/tcy/lib/python3.10/site-packages
+Requires: filelock, matplotlib, numpy, nvidia-ml-py, opencv-python, pillow, polars, psutil, pyyaml, requests, torch, torchvision, ultralytics-thop
+Required-by: 

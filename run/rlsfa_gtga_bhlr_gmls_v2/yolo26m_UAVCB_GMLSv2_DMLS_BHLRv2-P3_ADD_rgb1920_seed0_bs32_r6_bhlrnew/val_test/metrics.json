@@ -1,0 +1,22 @@
+{
+  "model": "yolo26m",
+  "fusion": "add",
+  "checkpoint": "/mnt/sda/taochangyong/Projects/Model/YOLO-tcy_v5/runs/rlsfa_gtga_bhlr_gmls_v2/yolo26m_UAVCB_GMLSv2_DMLS_BHLRv2-P3_ADD_rgb1920_seed0_bs32_r6_bhlrnew/weights/best.pt",
+  "split": "test",
+  "params_m": 32.334977,
+  "flops_g": 117.71181376,
+  "fps": 24.98619090630832,
+  "latency_ms": 40.02210676087998,
+  "rgb_high_imgsz": 1920,
+  "rgb_semantic_imgsz": 640,
+  "tir_imgsz": 640,
+  "alignment": "RLSFA coarse anchor + local GTGA center-preserving anisotropic scale",
+  "bhlr_guidance": "alignment",
+  "precision": 0.9694454195550104,
+  "recall": 0.8374045087619455,
+  "map50": 0.8884634663741016,
+  "map75": 0.6244517803345673,
+  "map5095": 0.5539954338500619,
+  "images": 682,
+  "instances": 682
+}

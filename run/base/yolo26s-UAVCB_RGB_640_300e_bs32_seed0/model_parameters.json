@@ -1,0 +1,5 @@
+{
+    "model": "yolo26s.pt",
+    "total_parameters": 10009784,
+    "trainable_parameters": 0
+}

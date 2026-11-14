@@ -1,0 +1,10 @@
+{
+  "output_dir": "/mnt/sda/taochangyong/Projects/Model/YOLO-tcy_v5/runs/rlsfa_gtga_bhlr_gmls_v2/yolo8s_UAVCB_GMLSv2_DMLS_BHLRv2-P3_ADD_rgb1920_seed0_bs32_r6_bhlrnew",
+  "best_checkpoint": "/mnt/sda/taochangyong/Projects/Model/YOLO-tcy_v5/runs/rlsfa_gtga_bhlr_gmls_v2/yolo8s_UAVCB_GMLSv2_DMLS_BHLRv2-P3_ADD_rgb1920_seed0_bs32_r6_bhlrnew/weights/best.pt",
+  "global_best_map5095": 0.5371918831501719,
+  "stage1_best_map5095": 0.5335143540352587,
+  "stage2_best_map5095": 0.5371918831501719,
+  "world_size": 1,
+  "batch_per_gpu": 32,
+  "global_batch": 32
+}

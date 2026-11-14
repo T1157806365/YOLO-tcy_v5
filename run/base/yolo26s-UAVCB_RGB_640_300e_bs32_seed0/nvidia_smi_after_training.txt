@@ -1,0 +1,58 @@
+Mon Nov  9 22:44:43 2026       
++-----------------------------------------------------------------------------------------+
+| NVIDIA-SMI 580.126.09             Driver Version: 580.126.09     CUDA Version: 13.0     |
++-----------------------------------------+------------------------+----------------------+
+| GPU  Name                 Persistence-M | Bus-Id          Disp.A | Volatile Uncorr. ECC |
+| Fan  Temp   Perf          Pwr:Usage/Cap |           Memory-Usage | GPU-Util  Compute M. |
+|                                         |                        |               MIG M. |
+|=========================================+========================+======================|
+|   0  NVIDIA GeForce RTX 4090        On  |   00000000:16:00.0 Off |                  Off |
+| 62%   40C    P2            104W /  450W |   36255MiB /  49140MiB |     11%      Default |
+|                                         |                        |                  N/A |
++-----------------------------------------+------------------------+----------------------+
+|   1  NVIDIA GeForce RTX 4090        On  |   00000000:27:00.0 Off |                  Off |
+| 60%   66C    P2            280W /  450W |   21317MiB /  24564MiB |     79%      Default |
+|                                         |                        |                  N/A |
++-----------------------------------------+------------------------+----------------------+
+|   2  NVIDIA GeForce RTX 4090        On  |   00000000:38:00.0 Off |                  Off |
+| 30%   55C    P2            231W /  450W |   22627MiB /  24564MiB |     99%      Default |
+|                                         |                        |                  N/A |
++-----------------------------------------+------------------------+----------------------+
+|   3  NVIDIA GeForce RTX 4090        On  |   00000000:5A:00.0 Off |                  Off |
+| 30%   53C    P2            220W /  450W |   22625MiB /  24564MiB |     84%      Default |
+|                                         |                        |                  N/A |
++-----------------------------------------+------------------------+----------------------+
+|   4  NVIDIA GeForce RTX 4090        On  |   00000000:98:00.0 Off |                  Off |
+| 61%   43C    P2             83W /  450W |    2119MiB /  49140MiB |      0%      Default |
+|                                         |                        |                  N/A |
++-----------------------------------------+------------------------+----------------------+
+|   5  NVIDIA GeForce RTX 4090        On  |   00000000:B8:00.0 Off |                  Off |
+| 66%   53C    P2            312W /  450W |   24641MiB /  49140MiB |     90%      Default |
+|                                         |                        |                  N/A |
++-----------------------------------------+------------------------+----------------------+
+|   6  NVIDIA GeForce RTX 4090        On  |   00000000:C8:00.0 Off |                  Off |
+| 76%   58C    P2            301W /  450W |   24641MiB /  49140MiB |     90%      Default |
+|                                         |                        |                  N/A |
++-----------------------------------------+------------------------+----------------------+
+
++-----------------------------------------------------------------------------------------+
+| Processes:                                                                              |
+|  GPU   GI   CI              PID   Type   Process name                        GPU Memory |
+|        ID   ID                                                               Usage      |
+|=========================================================================================|
+|    0   N/A  N/A            3473      G   /usr/lib/xorg/Xorg                        4MiB |
+|    0   N/A  N/A          651835      C   ...ing/.conda/envs/mt/bin/python      36224MiB |
+|    1   N/A  N/A            3473      G   /usr/lib/xorg/Xorg                        4MiB |
+|    1   N/A  N/A         4070660      C   ...ing/.conda/envs/mt/bin/python      21294MiB |
+|    2   N/A  N/A            3473      G   /usr/lib/xorg/Xorg                        4MiB |
+|    2   N/A  N/A         1109384      C   ...ng/.conda/envs/tcy/bin/python      22602MiB |
+|    3   N/A  N/A            3473      G   /usr/lib/xorg/Xorg                        4MiB |
+|    3   N/A  N/A         1109385      C   ...ng/.conda/envs/tcy/bin/python      22600MiB |
+|    4   N/A  N/A            3473      G   /usr/lib/xorg/Xorg                        4MiB |
+|    4   N/A  N/A         1112680      C   ...ng/.conda/envs/tcy/bin/python       1040MiB |
+|    4   N/A  N/A         1115082      C   ...ng/.conda/envs/tcy/bin/python       1034MiB |
+|    5   N/A  N/A            3473      G   /usr/lib/xorg/Xorg                        4MiB |
+|    5   N/A  N/A         1096328      C   ...ng/.conda/envs/tcy/bin/python      24616MiB |
+|    6   N/A  N/A            3473      G   /usr/lib/xorg/Xorg                        4MiB |
+|    6   N/A  N/A         1096329      C   ...ng/.conda/envs/tcy/bin/python      24616MiB |
++-----------------------------------------------------------------------------------------+

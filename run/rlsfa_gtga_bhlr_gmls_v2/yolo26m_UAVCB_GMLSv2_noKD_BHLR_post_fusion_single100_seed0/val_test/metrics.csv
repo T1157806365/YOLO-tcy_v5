@@ -1,0 +1,2 @@
+﻿Model,Params(M),FLOPs(G),FPS,Latency(ms),P(%),R(%),AP50(%),AP75(%),AP50:95(%),RGB_high_imgsz,RGB_semantic_imgsz,TIR_imgsz,Split
+yolo26m,32.3350,117.7118,26.3896,37.8937,95.7516,84.3109,88.9271,57.7843,53.4329,,,,test

@@ -1,0 +1,17 @@
+{
+    "train": {
+        "split": "train",
+        "folder": "/mnt/sda/taochangyong/Projects/datasets/UAV-CB/visible/train",
+        "error": "directory does not exist"
+    },
+    "val": {
+        "split": "val",
+        "folder": "/mnt/sda/taochangyong/Projects/datasets/UAV-CB/visible/val",
+        "error": "directory does not exist"
+    },
+    "test": {
+        "split": "test",
+        "folder": "/mnt/sda/taochangyong/Projects/datasets/UAV-CB/visible/test",
+        "error": "directory does not exist"
+    }
+}

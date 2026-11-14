@@ -1,0 +1,9 @@
+nohup: 忽略输入
+Traceback (most recent call last):
+  File "/mnt/sda/taochangyong/Projects/Model/YOLO-tcy_v5/train_rlsfa_gtga_bhlr_v2.py", line 174, in <module>
+    main()
+  File "/mnt/sda/taochangyong/Projects/Model/YOLO-tcy_v5/train_rlsfa_gtga_bhlr_v2.py", line 151, in main
+    cfg = load_config(
+  File "/mnt/sda/taochangyong/Projects/Model/YOLO-tcy_v5/engine/runtime.py", line 18, in load_config
+    raise FileNotFoundError(path)
+FileNotFoundError: /mnt/sda/taochangyong/Projects/Model/YOLO-tcy_v5/configs/experiments/gmls_v2/uavcb_yolo26m_add_baseline.yaml

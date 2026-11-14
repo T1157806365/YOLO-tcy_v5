@@ -1,0 +1,87 @@
+{
+    "time": "2026-10-05T00:54:52.571570",
+    "python_version": "3.10.20 (main, Jun 11 2026, 15:17:37) [GCC 14.3.0]",
+    "python_executable": "/mnt/sda/taochangyong/.conda/envs/tcy/bin/python",
+    "platform": "Linux-6.8.0-40-generic-x86_64-with-glibc2.35",
+    "torch_version": "2.6.0+cu124",
+    "ultralytics_version": "8.4.118",
+    "cuda_available": true,
+    "torch_cuda_version": "12.4",
+    "cudnn_version": 90100,
+    "cuda_device_count": 6,
+    "selected_gpu": "4",
+    "working_directory": "/mnt/sda/taochangyong/Projects/YOLO26-AntiUAV",
+    "command": "train_yolo26_tir.py --gpu 4 --batch 16 --epochs 300 --workers 4 --seed 0",
+    "training_arguments": {
+        "data": "/mnt/sda/taochangyong/Projects/YOLO26-AntiUAV/AntiUAV300-TIR.yaml",
+        "imgsz": 640,
+        "rect": false,
+        "epochs": 300,
+        "batch": 16,
+        "device": "4",
+        "workers": 4,
+        "cache": false,
+        "optimizer": "SGD",
+        "lr0": 0.01,
+        "lrf": 0.01,
+        "momentum": 0.937,
+        "weight_decay": 0.0005,
+        "warmup_epochs": 3.0,
+        "hsv_h": 0.0,
+        "hsv_s": 0.0,
+        "hsv_v": 0.2,
+        "degrees": 0.0,
+        "translate": 0.1,
+        "scale": 0.5,
+        "shear": 0.0,
+        "perspective": 0.0,
+        "flipud": 0.0,
+        "fliplr": 0.5,
+        "mixup": 0.0,
+        "close_mosaic": 10,
+        "pretrained": true,
+        "amp": true,
+        "seed": 0,
+        "deterministic": true,
+        "patience": 100,
+        "val": true,
+        "save": true,
+        "save_period": 10,
+        "project": "/mnt/sda/taochangyong/Projects/YOLO26-AntiUAV/runs",
+        "name": "yolo11m-TIR_640_300e_bs16_seed0",
+        "exist_ok": true,
+        "plots": true
+    },
+    "available_gpus": [
+        {
+            "gpu_id": 0,
+            "name": "NVIDIA GeForce RTX 4090",
+            "memory_GB": 47.5
+        },
+        {
+            "gpu_id": 1,
+            "name": "NVIDIA GeForce RTX 4090",
+            "memory_GB": 23.64
+        },
+        {
+            "gpu_id": 2,
+            "name": "NVIDIA GeForce RTX 4090",
+            "memory_GB": 23.64
+        },
+        {
+            "gpu_id": 3,
+            "name": "NVIDIA GeForce RTX 4090",
+            "memory_GB": 23.64
+        },
+        {
+            "gpu_id": 4,
+            "name": "NVIDIA GeForce RTX 4090",
+            "memory_GB": 23.64
+        },
+        {
+            "gpu_id": 5,
+            "name": "NVIDIA GeForce RTX 4090",
+            "memory_GB": 47.5
+        }
+    ]
+}

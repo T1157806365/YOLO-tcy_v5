@@ -1,0 +1,26 @@
+{
+    "model": "/mnt/sda/taochangyong/Projects/YOLO26-AntiUAV/runs/yolo11m-RGB_640_300e_bs32_seed0_2/weights/best.pt",
+    "dataset": "/mnt/sda/taochangyong/Projects/YOLO26-AntiUAV/UAV-CB-RGB.yaml",
+    "split": "test",
+    "imgsz": 640,
+    "rect": false,
+    "device": "4",
+    "Precision": 0.9425986564971698,
+    "Recall": 0.8387096774193549,
+    "mAP50": 0.8983276909402671,
+    "mAP75": 0.6392453724472339,
+    "mAP50_95": 0.5640350861773578,
+    "speed_ms": {
+        "preprocess": 0.5929826897407864,
+        "inference": 1.5324295431517523,
+        "loss": 0.0007834382453534611,
+        "postprocess": 0.28837529656988
+    },
+    "results_dict": {
+        "metrics/precision(B)": 0.9425986564971698,
+        "metrics/recall(B)": 0.8387096774193549,
+        "metrics/mAP50(B)": 0.8983276909402671,
+        "metrics/mAP50-95(B)": 0.5640350861773578,
+        "fitness": 0.5640350861773578
+    }
+}

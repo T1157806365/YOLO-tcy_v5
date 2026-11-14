@@ -1,0 +1,6 @@
+{
+    "model": "yolo26m.pt",
+    "modality": "TIR",
+    "total_parameters": 21896248,
+    "trainable_parameters": 0
+}

@@ -1,0 +1,29 @@
+
+Experiment completed successfully.
+
+Model:
+YOLO11m
+
+Modality:
+TIR
+
+Run:
+yolo11m-TIR_640_300e_bs16_seed0_1
+
+Completed:
+2026-10-20T22:30:35.298099
+
+Best:
+/mnt/sda/taochangyong/Projects/YOLO26-AntiUAV/runs/yolo11m-TIR_640_300e_bs16_seed0_1/weights/best.pt
+
+Test Precision:
+0.951155308348762
+
+Test Recall:
+0.8973607038123167
+
+Test mAP50:
+0.9399773680415158
+
+Test mAP50-95:
+0.6020202210939674

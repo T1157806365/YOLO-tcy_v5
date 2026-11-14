@@ -1,0 +1,171 @@
+
+================================================================================
+YOLO11m RGB Anti-UAV Experiment Summary
+================================================================================
+
+Experiment
+--------------------------------------------------------------------------------
+
+Run Name:
+yolo11m-RGB_640_300e_bs16_seed0_4
+
+Model:
+yolo26m.pt
+
+Task:
+Object Detection
+
+Modality:
+RGB
+
+Dataset:
+Anti-UAV-RGBT
+
+Dataset YAML:
+/mnt/sda/taochangyong/Projects/YOLO26-AntiUAV/AntiUAV300-RGB.yaml
+
+================================================================================
+Training Configuration
+================================================================================
+
+GPU:
+3
+
+Input Size:
+640
+
+Epochs:
+300
+
+Global Batch:
+16
+
+Workers:
+4
+
+Optimizer:
+SGD
+
+Initial Learning Rate:
+0.01
+
+Final LR Factor:
+0.01
+
+Momentum:
+0.937
+
+Weight Decay:
+0.0005
+
+Warmup Epochs:
+3.0
+
+Seed:
+0
+
+AMP:
+True
+
+Deterministic:
+True
+
+Mosaic:
+1.0
+
+Close Mosaic:
+10
+
+MixUp:
+0.0
+
+================================================================================
+Dataset Statistics
+================================================================================
+
+Train Images:
+None
+
+Train Objects:
+None
+
+Train Background Images:
+None
+
+Validation Images:
+None
+
+Validation Objects:
+None
+
+Validation Background Images:
+None
+
+Test Images:
+None
+
+Test Objects:
+None
+
+Test Background Images:
+None
+
+================================================================================
+Model
+================================================================================
+
+Total Parameters:
+21,896,248
+
+Trainable Parameters:
+0
+
+================================================================================
+Training Time
+================================================================================
+
+Start:
+2026-10-05T00:54:10.232142
+
+End:
+2026-10-05T04:17:18.394712
+
+Training Seconds:
+12188.16
+
+Training Hours:
+3.3856
+
+================================================================================
+Test Results
+================================================================================
+
+Precision:
+0.9789415204461884
+
+Recall:
+0.9055871935312164
+
+mAP50:
+0.9467296266392939
+
+mAP75:
+0.5587039793618744
+
+mAP50-95:
+0.5307361741859162
+
+Inference Speed:
+{'preprocess': 0.4728209027132698, 'inference': 2.479244972727148, 'loss': 0.0008801446583504989, 'postprocess': 0.071448059839623}
+
+================================================================================
+Weights
+================================================================================
+
+Best:
+/mnt/sda/taochangyong/Projects/YOLO26-AntiUAV/runs/yolo11m-RGB_640_300e_bs16_seed0_4/weights/best.pt
+
+Last:
+/mnt/sda/taochangyong/Projects/YOLO26-AntiUAV/runs/yolo11m-RGB_640_300e_bs16_seed0_4/weights/last.pt
+
+================================================================================

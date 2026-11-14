@@ -1,0 +1,2 @@
+﻿Model,Params(M),FLOPs(G),FPS,Latency(ms),P(%),R(%),AP50(%),AP75(%),AP50:95(%),RGB_high_imgsz,RGB_semantic_imgsz,TIR_imgsz,Split
+yolo8s,16.3158,43.2315,43.3957,23.0438,94.7857,85.2936,87.6345,57.3484,52.9734,,,,test

@@ -1,0 +1,27 @@
+{
+    "model": "/mnt/sda/taochangyong/Projects/YOLO26-AntiUAV/runs/yolo11m-TIR_640_300e_bs16_seed0/weights/best.pt",
+    "modality": "TIR",
+    "dataset": "/mnt/sda/taochangyong/Projects/YOLO26-AntiUAV/AntiUAV300-TIR.yaml",
+    "split": "test",
+    "imgsz": 640,
+    "rect": false,
+    "device": "4",
+    "Precision": 0.9540625398014573,
+    "Recall": 0.8790896159317212,
+    "mAP50": 0.9030455701472337,
+    "mAP75": 0.4448780286436108,
+    "mAP50_95": 0.4797884646631759,
+    "speed_ms": {
+        "preprocess": 0.463958183373107,
+        "inference": 2.44274378849942,
+        "loss": 0.0008138366670252007,
+        "postprocess": 0.06418738723079735
+    },
+    "results_dict": {
+        "metrics/precision(B)": 0.9540625398014573,
+        "metrics/recall(B)": 0.8790896159317212,
+        "metrics/mAP50(B)": 0.9030455701472337,
+        "metrics/mAP50-95(B)": 0.4797884646631759,
+        "fitness": 0.4797884646631759
+    }
+}

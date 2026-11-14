@@ -1,0 +1,17 @@
+
+Experiment completed successfully.
+
+Run:
+yolo11m-RGB_640_300e_bs32_seed0_2
+
+Completed:
+2026-11-09T22:44:52.662530
+
+Best:
+/mnt/sda/taochangyong/Projects/YOLO26-AntiUAV/runs/yolo11m-RGB_640_300e_bs32_seed0_2/weights/best.pt
+
+Test mAP50:
+0.8983276909402671
+
+Test mAP50-95:
+0.5640350861773578

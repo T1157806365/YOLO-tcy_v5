@@ -1,0 +1,171 @@
+
+================================================================================
+YOLO11m TIR Anti-UAV Experiment Summary
+================================================================================
+
+Experiment
+--------------------------------------------------------------------------------
+
+Run Name:
+yolo11m-TIR_640_300e_bs16_seed0
+
+Model:
+yolo26m.pt
+
+Task:
+Object Detection
+
+Modality:
+TIR
+
+Dataset:
+Anti-UAV-RGBT
+
+Dataset YAML:
+/mnt/sda/taochangyong/Projects/YOLO26-AntiUAV/AntiUAV300-TIR.yaml
+
+================================================================================
+Training Configuration
+================================================================================
+
+GPU:
+4
+
+Input Size:
+640
+
+Epochs:
+300
+
+Global Batch:
+16
+
+Workers:
+4
+
+Optimizer:
+SGD
+
+Initial Learning Rate:
+0.01
+
+Final LR Factor:
+0.01
+
+Momentum:
+0.937
+
+Weight Decay:
+0.0005
+
+Warmup Epochs:
+3.0
+
+Seed:
+0
+
+AMP:
+True
+
+Deterministic:
+True
+
+Mosaic:
+1.0
+
+Close Mosaic:
+10
+
+MixUp:
+0.0
+
+================================================================================
+Dataset Statistics
+================================================================================
+
+Train Images:
+None
+
+Train Objects:
+None
+
+Train Background Images:
+None
+
+Validation Images:
+None
+
+Validation Objects:
+None
+
+Validation Background Images:
+None
+
+Test Images:
+None
+
+Test Objects:
+None
+
+Test Background Images:
+None
+
+================================================================================
+Model
+================================================================================
+
+Total Parameters:
+21,896,248
+
+Trainable Parameters:
+0
+
+================================================================================
+Training Time
+================================================================================
+
+Start:
+2026-10-05T00:54:57.777294
+
+End:
+2026-10-05T05:01:59.210977
+
+Training Seconds:
+14821.43
+
+Training Hours:
+4.1171
+
+================================================================================
+Test Results
+================================================================================
+
+Precision:
+0.9540625398014573
+
+Recall:
+0.8790896159317212
+
+mAP50:
+0.9030455701472337
+
+mAP75:
+0.4448780286436108
+
+mAP50-95:
+0.4797884646631759
+
+Inference Speed:
+{'preprocess': 0.463958183373107, 'inference': 2.44274378849942, 'loss': 0.0008138366670252007, 'postprocess': 0.06418738723079735}
+
+================================================================================
+Weights
+================================================================================
+
+Best:
+/mnt/sda/taochangyong/Projects/YOLO26-AntiUAV/runs/yolo11m-TIR_640_300e_bs16_seed0/weights/best.pt
+
+Last:
+/mnt/sda/taochangyong/Projects/YOLO26-AntiUAV/runs/yolo11m-TIR_640_300e_bs16_seed0/weights/last.pt
+
+================================================================================
