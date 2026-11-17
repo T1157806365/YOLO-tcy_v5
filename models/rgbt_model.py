@@ -56,6 +56,49 @@ python models/rgbt_model.py \
 
 from __future__ import annotations
 
+
+def _tcy_transfer_p2_detect_head(src_model, dst_model):
+    """Remap source P3/P4/P5 Detect branches to target indices 1/2/3.
+
+    Copies ONLY same-shape tensors. P2 (index 0) stays newly initialized,
+    and 80-class logits are never incorrectly copied into the UAV class.
+    """
+    import re
+    src = src_model.model[-1]
+    dst = dst_model.model[-1]
+    if int(getattr(src, "nl", 0)) != 3 or int(getattr(dst, "nl", 0)) != 4:
+        raise RuntimeError("Detect head transfer requires 3-scale source and 4-scale target")
+    src_sd = src.state_dict()
+    dst_sd = dst.state_dict()
+    copied = {}
+    numel = 0
+    groups = ("cv2", "cv3", "one2one_cv2", "one2one_cv3")
+    pattern = re.compile(r"^(cv2|cv3|one2one_cv2|one2one_cv3)\.(\d+)\.(.+)$")
+    for dst_key, dst_value in dst_sd.items():
+        hit = pattern.match(dst_key)
+        if hit is None:
+            continue
+        group, dst_scale, suffix = hit.groups()
+        dst_scale = int(dst_scale)
+        if dst_scale not in (1, 2, 3):
+            continue
+        src_key = f"{group}.{dst_scale - 1}.{suffix}"
+        src_value = src_sd.get(src_key)
+        if src_value is not None and tuple(src_value.shape) == tuple(dst_value.shape):
+            copied[dst_key] = src_value.detach().to(
+                device=dst_value.device, dtype=dst_value.dtype
+            ).clone()
+            numel += int(dst_value.numel())
+    if not copied:
+        raise RuntimeError("No compatible pretrained Detect head tensors found")
+    incompatible = dst.load_state_dict(copied, strict=False)
+    print(
+        f"[P2 HEAD PRETRAIN] restored P3/P4/P5 tensors={len(copied)} "
+        f"parameter_elements={numel}; P2 branch freshly initialized",
+        flush=True,
+    )
+    return len(copied), numel
+
 import argparse
 import sys
 from copy import deepcopy
@@ -670,6 +713,8 @@ class RGBTDetectionModel(nn.Module):
             ]
         ] = None,
 
+        model_yaml_override: Optional[str] = None,
+        p2_head_pretrain: bool = False,
         verbose: bool = True,
     ):
         super().__init__()
@@ -708,6 +753,11 @@ class RGBTDetectionModel(nn.Module):
                 "yaml"
             ]
         )
+
+        if model_yaml_override is not None:
+            self.model_yaml_path = Path(model_yaml_override).expanduser().resolve()
+            if not self.model_yaml_path.is_file():
+                raise FileNotFoundError(self.model_yaml_path)
 
         self.pretrained_path = (
             Path(
@@ -835,6 +885,11 @@ class RGBTDetectionModel(nn.Module):
                 pretrained_model,
                 verbose=verbose,
             )
+
+            if p2_head_pretrain:
+                if not self.model_name.endswith("-p2"):
+                    raise ValueError("p2_head_pretrain only supports -p2 models")
+                _tcy_transfer_p2_detect_head(pretrained_model, rgb_base)
 
             del pretrained_yolo
             del pretrained_model

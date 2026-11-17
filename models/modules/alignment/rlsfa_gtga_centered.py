@@ -1437,9 +1437,16 @@ class RLSFAGTGAScaleUnit(nn.Module):
         valid = g['rgb_valid_mask'].clamp(0, 1)
         rgb_target_support = (g['rgb_local_targetness'].clamp(0, 1) * valid).clamp(0, 1)
         tir_target_support = (aligned_tir_local_target * valid).clamp(0, 1)
-        joint = torch.sqrt(
-            (rgb_target_support * tir_target_support).clamp_min(0)
-        ).clamp(0, 1)
+        # Safe joint support: avoid infinite sqrt(0) gradients.
+        joint_product = (
+            rgb_target_support.float() * tir_target_support.float()
+        ).clamp_min(0.0)
+
+        joint = torch.where(
+            joint_product > 0,
+            torch.sqrt(joint_product.clamp_min(1e-6)),
+            torch.zeros_like(joint_product),
+        ).to(dtype=rgb_target_support.dtype).clamp(0, 1)
         multi_target_guidance = torch.cat(
             [rgb_target_support, tir_target_support, joint],
             dim=1,

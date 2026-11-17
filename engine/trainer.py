@@ -551,8 +551,35 @@ def run_stage(
                 if isinstance(v, (int, float))
             },
         }
+        # P2_SELECTIVE_HR_V1: epoch monitor, rank0 local training batches.
+        if is_main_process() and hasattr(unwrap_model(model), "p2_hr_monitor"):
+            n_p2, p2_vals = unwrap_model(model).p2_hr_monitor(reset=True)
+            if n_p2:
+                row.update({k: float(v) for k, v in p2_vals.items()})
+                main_print(
+                    f"[P2-HR MONITOR] epoch={epoch+1}/{epochs} "
+                    f"gamma={p2_vals['p2_hr_gamma']:.5f} "
+                    f"gate_mean={p2_vals['p2_hr_gate']:.4f} "
+                    f"delta_l1={p2_vals['p2_hr_delta_l1']:.6f} "
+                    f"detail_l1={p2_vals['p2_hr_detail_l1']:.5f} "
+                    f"batches={n_p2}"
+                )
         history.append(row)
         _write_history(out_dir / f"history_{stage}.json", history)
+
+        # FINAL_TRI_GATE_P3_V1: one extra line per epoch, only for new model.
+        if is_main_process() and hasattr(unwrap_model(model), "tri_gate_monitor"):
+            n_tri, tri_values = unwrap_model(model).tri_gate_monitor(reset=True)
+            if n_tri > 0:
+                main_print(
+                    f"[FINAL TRI-FUSION MONITOR] epoch={epoch+1} "
+                    f"w_rgb={tri_values['w_rgb']:.4f} "
+                    f"w_tir={tri_values['w_tir']:.4f} "
+                    f"w_hr={tri_values['w_hr']:.4f} "
+                    f"fusion_delta_l1={tri_values['fusion_delta_l1']:.5f} "
+                    f"hr_delta_l1={tri_values['hr_delta_l1']:.5f} "
+                    f"batches={n_tri}"
+                )
 
         main_print(
             f"\n[{stage}] epoch {epoch+1}/{epochs} | "
@@ -563,8 +590,24 @@ def run_stage(
             f"AP75={metrics['map75']:.4f} | "
             f"AP50:95={metrics['map5095']:.4f} | "
             f"stage_best={stage_best:.4f} | "
-            f"global_best={global_best_map:.4f}\n"
+            f"global_best={global_best_map:.4f} | "
+            f"improved={'YES' if improved_stage else 'NO'} | "
+            f"no_improve={early_stop_counter}/{patience} | "
+            f"last_best_epoch={epoch + 1 - early_stop_counter}\n"
         )
+
+        # HVAD_GEOHR_V1_EPOCH_LOG
+        if "hvad_rank_loss" in running:
+            main_print(
+                f"[HVAD] epoch={epoch+1}/{epochs} | "
+                f"rank={running.get('hvad_rank_loss',0.0):.4f} | "
+                f"rank_acc={running.get('hvad_rank_accuracy',0.0):.3f} | "
+                f"oracle_err_px={running.get('hvad_oracle_err_px',0.0):.2f} | "
+                f"gain={running.get('hvad_gain',0.0):.4f} | "
+                f"gate={running.get('hvad_gate_mean',0.0):.3f} | "
+                f"delta={running.get('hvad_fusion_delta',0.0):.5f} | "
+                f"local_ratio={running.get('hvad_choice_local',0.0):.3f}"
+            )
 
         if int(patience) > 0 and early_stop_counter >= int(patience):
             main_print(

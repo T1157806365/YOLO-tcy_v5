@@ -15,11 +15,11 @@ git push -u origin backup-20261112-no-teacher
 # 重新推送
 conda activate tcy
 cd /mnt/sda/taochangyong/Projects/Model/YOLO-tcy_v5
-git -c http.version=HTTP/1.1 push -u origin backup-20261112-no teacher
+git -c http.version=HTTP/1.1 push -u origin backup-20261112-no-teacher
 
 
 # 如果服务器已经配置 GitHub SSH 密钥，也可以尝试改走 SSH：
 timeout 15 ssh -T git@github.com
 # 如果 SSH 认证成功，直接推送：
 git push -u git@github.com:T1157806365/YOLO-tcy_v5.git \
-  backup-20261112-no teacher
+  backup-20261112-no-teacher

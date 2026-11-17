@@ -447,7 +447,33 @@ def build_model_from_config(
             or {}
         )
 
-        model = RGBTRLSFAGTGACenteredBHLRV2DetectionModel(
+        # FINAL_TRI_GATE_P3_V1: opt-in only; original class untouched.
+        model_constructor = RGBTRLSFAGTGACenteredBHLRV2DetectionModel
+        tri_cfg = dict(model_cfg.get("tri_gate", {}) or {})
+        if bool(tri_cfg.get("enabled", False)):
+            from functools import partial
+            from models.rgbt_final_tri_gate import (
+                RGBTRLSFAGTGACenteredBHLRV2TriGateModel,
+            )
+            model_constructor = partial(
+                RGBTRLSFAGTGACenteredBHLRV2TriGateModel,
+                tri_gate_cfg=tri_cfg,
+            )
+        # P2_SELECTIVE_HR_V1: opt-in only; default P3 TriGate is unchanged.
+        p2hr_cfg = dict(model_cfg.get("p2_hr_refine", {}) or {})
+        if bool(p2hr_cfg.get("enabled", False)):
+            if not bool(tri_cfg.get("enabled", False)):
+                raise ValueError("P2HR requires model.tri_gate.enabled: true")
+            from functools import partial
+            from models.rgbt_tri_gate_p2_hr import (
+                RGBTRLSFAGTGACenteredBHLRV2TriGateP2HRModel,
+            )
+            model_constructor = partial(
+                RGBTRLSFAGTGACenteredBHLRV2TriGateP2HRModel,
+                tri_gate_cfg=tri_cfg,
+                p2_hr_cfg=p2hr_cfg,
+            )
+        model = model_constructor(
             model_name=str(
                 model_cfg.get(
                     "name",
@@ -541,6 +567,8 @@ def build_model_from_config(
                 )
                 or {}
             ),
+            model_yaml_override=model_cfg.get("model_yaml_override"),
+            p2_head_pretrain=bool(model_cfg.get("p2_head_pretrain", False)),
             verbose=verbose,
         )
 
@@ -928,6 +956,11 @@ def build_model_from_config(
                 else "auto"
             ),
         )
+
+    # HVAD_GEOHR_V1_FACTORY_INTEGRATION
+    if bool((model_cfg.get("hvad", {}) or {}).get("enabled", False)):
+        from hvad.runtime import attach_hvad
+        model = attach_hvad(model, model_cfg["hvad"], verbose=verbose)
 
     return model
 

@@ -86,6 +86,8 @@ class RGBTRLSFAGTGACenteredBHLRV2DetectionModel(RGBTDetectionModel):
         guide_channels: int = 24,
         bhlr_guidance_mode: str = "alignment",
         bhlr_detach_alignment_guidance: bool = True,
+        model_yaml_override: Optional[str] = None,
+        p2_head_pretrain: bool = False,
         verbose: bool = True,
         **legacy_kwargs,
     ):
@@ -99,6 +101,8 @@ class RGBTRLSFAGTGACenteredBHLRV2DetectionModel(RGBTDetectionModel):
             fusion_indices=fusion_indices,
             align_mode=align_mode,
             names=names,
+            model_yaml_override=model_yaml_override,
+            p2_head_pretrain=p2_head_pretrain,
             verbose=verbose,
         )
 
@@ -659,6 +663,10 @@ class RGBTRLSFAGTGACenteredBHLRV2DetectionModel(RGBTDetectionModel):
             "bhlr_layers": self.bhlr_layers,
             "bhlr_guidance_mode": self.bhlr_guidance_mode,
         }
+        # P2_SELECTIVE_HR_V1: reuse already extracted BHLR detail bank;
+        # no second 1920x1920 detail encoder and no change to old models.
+        if getattr(self, "p2_hr_refine_enabled", False):
+            result["p2_hr_detail_raw"] = detail_raw if use_bhlr else None
         if return_bhlr_debug:
             result["bhlr_debug"] = bhlr_debug
             result["rsdt_debug"] = bhlr_debug
