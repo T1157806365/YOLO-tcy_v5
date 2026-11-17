@@ -962,6 +962,11 @@ def build_model_from_config(
         from hvad.runtime import attach_hvad
         model = attach_hvad(model, model_cfg["hvad"], verbose=verbose)
 
+    # BHLR_DUAL_HR_V1_FACTORY_INTEGRATION
+    if bool((model_cfg.get("bhlr_dual_hr", {}) or {}).get("enabled", False)):
+        from models.modules.bhlr_dual_hr import attach_dual_hr
+        model = attach_dual_hr(model, model_cfg["bhlr_dual_hr"], verbose=verbose)
+
     return model
 
 

@@ -1,0 +1,271 @@
+"""Single-run scratch joint training and fair full-image validation for GMLS-v2.
+
+No offline ROI dataset. No frozen teacher. Builds training ROIs online from
+GTGA proposals, with GT-assisted crop augmentation only while TRAINING.
+"""
+from __future__ import annotations
+
+import contextlib
+import csv
+import json
+import os
+from datetime import timedelta
+from pathlib import Path
+import torch
+import torch.distributed as dist
+from torch.nn.parallel import DistributedDataParallel as DDP
+from torch.utils.data import DataLoader, DistributedSampler
+from tqdm import tqdm
+
+from datasets.rsdt_dataset import build_rsdt_dataset
+from engine.runtime import (
+    load_config, set_seed, setup_distributed, preprocess_batch,
+    autocast_context,
+)
+from engine.trainer import build_optimizer, build_scheduler
+from engine.evaluator import prepare_semantic_ground_truth, process_single_image
+from ultralytics.utils.metrics import DetMetrics
+from .joint_model import GMLSV2GlobalLocalScratch
+
+
+def make_loader(cfg, split: str, *, batch_size: int, workers: int,
+                distributed: bool = False, rank: int = 0, world_size: int = 1):
+    dc, ac, tc = cfg['data'], cfg.get('augment', {}), cfg['train']
+    ds = build_rsdt_dataset(
+        rgb_yaml=dc['rgb'], tir_yaml=dc['tir'], split=split,
+        rgb_high_imgsz=int(dc.get('rgb_imgsz', 1920)),
+        rgb_semantic_imgsz=int(dc.get('rgb_semantic_imgsz', 640)),
+        tir_imgsz=int(dc.get('tir_imgsz', 640)),
+        pair_mode=str(dc.get('pair_mode', 'relative')),
+        augment=(split == 'train'), fliplr=float(ac.get('fliplr', 0.5)),
+        flipud=float(ac.get('flipud', 0.0)), tir_channels=3,
+        strict_pair=True,
+    )
+    sampler = DistributedSampler(
+        ds, num_replicas=world_size, rank=rank, shuffle=split == 'train',
+        seed=int(tc.get('seed', 0)), drop_last=False,
+    ) if distributed else None
+    loader = DataLoader(
+        ds, batch_size=int(batch_size),
+        shuffle=(split == 'train' and sampler is None), sampler=sampler,
+        num_workers=int(workers), pin_memory=True,
+        collate_fn=ds.collate_fn, drop_last=False,
+        persistent_workers=(int(workers) > 0),
+    )
+    return loader, sampler
+
+
+def load_scratch_checkpoint(path, cfg, device, *, verbose=False):
+    obj = torch.load(path, map_location='cpu', weights_only=False)
+    if obj.get('architecture') != 'gmls_v2_global_local_scratch':
+        raise ValueError(f'Not the GMLS-v2 scratch global-local checkpoint: {path}')
+    net = GMLSV2GlobalLocalScratch(cfg, verbose=verbose)
+    raw = obj['model_state_dict']
+    if raw and all(k.startswith('module.') for k in raw):
+        raw = {k[7:]: v for k, v in raw.items()}
+    net.load_state_dict(raw, strict=True)
+    net.to(device).eval()
+    return net, obj
+
+
+def save_checkpoint(path: Path, net, opt, sched, epoch, score, cfg):
+    path.parent.mkdir(parents=True, exist_ok=True)
+    tmp = path.with_name(path.name + '.tmp')
+    torch.save({
+        'architecture': 'gmls_v2_global_local_scratch',
+        'model_state_dict': {k: v.detach().cpu().clone()
+                             for k,v in net.state_dict().items()},
+        'config': cfg,
+        'epoch': int(epoch),
+        'val_map5095': float(score),
+        'optimizer_state_dict': opt.state_dict(),
+        'scheduler_state_dict': sched.state_dict(),
+    }, tmp)
+    os.replace(tmp, path)
+
+
+@torch.inference_mode()
+def evaluate(net, loader, device, cfg, *, split='val', smoke=False):
+    net.eval()
+    ecfg = cfg.get('eval', {})
+    conf = float(ecfg.get('conf', 0.001))
+    iou = float(ecfg.get('iou', 0.70))
+    amp = bool(cfg.get('train',{}).get('amp',True))
+    metrics = {key: DetMetrics(names={0:'UAV'})
+               for key in ('global','local','fused')}
+    iouv = torch.linspace(.50, .95, 10, device=device)
+    seen = 0
+    replaces = 0
+    adds = 0
+    num_rois = 0
+    pbar = tqdm(loader, desc=f'{split} joint validation', ncols=112, leave=False)
+    for bi, batch in enumerate(pbar):
+        batch = preprocess_batch(batch, device)
+        with autocast_context(device, amp):
+            preds = net.predict_global_local(batch, conf=conf, iou=iou)
+        seen += int(batch['rgb_img'].shape[0])
+        replaces += sum(int(x['replaced']) for x in preds['merge_stats'])
+        adds += sum(int(x['added']) for x in preds['merge_stats'])
+        num_rois += int(preds['roi_count'])
+        for j in range(int(batch['rgb_img'].shape[0])):
+            gt = prepare_semantic_ground_truth(batch, j)
+            target_cls = gt['cls'].detach().float().cpu().numpy()
+            for mode in metrics:
+                pred = preds[mode][j]
+                tp = process_single_image(pred, gt, iouv)
+                metrics[mode].update_stats({
+                    'tp': tp,
+                    'conf': pred['conf'].detach().float().cpu().numpy(),
+                    'pred_cls': pred['cls'].detach().float().cpu().numpy(),
+                    'target_cls': target_cls,
+                    'target_img': __import__('numpy').unique(target_cls),
+                    'im_name': Path(batch['rgb_path'][j]).name,
+                })
+        if smoke: break
+    out = {'images': seen, 'roi_count': num_rois,
+           'replaced': replaces, 'added': adds}
+    for key, one in metrics.items():
+        one.process(plot=False)
+        p,r,ap50,ap = one.mean_results()
+        out[key] = {'precision': float(p),'recall':float(r),
+                    'map50':float(ap50),'map75':float(one.box.map75),
+                    'map5095':float(ap)}
+    return out
+
+
+def run_train(args):
+    cfg = load_config(args.cfg)
+    tc = cfg['train']
+    if args.smoke:
+        # Keep the smoke test short without changing any saved config.
+        cfg['train'] = {**tc, 'workers': 0}
+        tc = cfg['train']
+    if tc.get('resume') is not None or cfg['model'].get('pretrained') is not False:
+        raise ValueError('From scratch: set model.pretrained: false, train.resume: null')
+    if int(os.getenv('WORLD_SIZE','1')) > 1 and not dist.is_initialized():
+        # Full single-rank validation may exceed the default 10-minute NCCL timeout.
+        dist.init_process_group(backend='nccl', init_method='env://',
+                                timeout=timedelta(hours=3))
+    device, rank, _, world = setup_distributed(args.device or tc.get('device','5'))
+    set_seed(int(tc.get('seed',0)) + rank, bool(tc.get('deterministic',True)))
+    batch = int(tc.get('batch',4))
+    if batch % world != 0 or batch < world:
+        raise ValueError('Global batch must be divisible by world size')
+    train_loader, sampler = make_loader(
+        cfg, 'train', batch_size=batch//world,
+        workers=int(tc.get('workers',4)), distributed=world>1,rank=rank,world_size=world)
+    val_loader = None
+    if rank == 0 and not args.smoke:
+        val_loader,_ = make_loader(cfg,'val',batch_size=int(tc.get('val_batch',1)),
+                                   workers=int(tc.get('val_workers',2)))
+    net = GMLSV2GlobalLocalScratch(cfg, verbose=rank==0).to(device)
+    if world>1:
+        model=DDP(net,device_ids=[device.index],output_device=device.index,
+                  find_unused_parameters=True, broadcast_buffers=True)
+    else:
+        model=net
+    opt=build_optimizer(net,cfg)
+    epochs=int(tc.get('epochs',100))
+    sched=build_scheduler(opt,epochs,lrf=float(tc.get('lrf',.01)))
+    amp=bool(tc.get('amp',True)) and device.type=='cuda'
+    scaler=torch.cuda.amp.GradScaler(enabled=amp)
+    accumulate=int(tc.get('accumulate',8))
+    if accumulate<1:raise ValueError('train.accumulate must be >=1')
+    project=Path(cfg['output']['project'])/cfg['output']['name']
+    if rank == 0:
+        (project/'weights').mkdir(parents=True,exist_ok=True)
+        print(f'[GMLS-V2 SCRATCH JOINT] world={world} microbatch/rank={batch//world} '
+              f'accumulate={accumulate}, effective_batch≈{batch*accumulate}; '
+              f'global pretrained=False, local pretrained=False, no resume',flush=True)
+    if world>1:dist.barrier()
+    best=-1.0
+    history=[]
+    for epoch in range(epochs):
+        net.set_epoch(epoch)
+        model.train()
+        if sampler is not None:sampler.set_epoch(epoch)
+        opt.zero_grad(set_to_none=True)
+        rolling=0.0
+        iterator=tqdm(train_loader,disable=rank!=0,ncols=115,
+                      desc=f'joint scratch {epoch+1}/{epochs}')
+        for step,batch_data in enumerate(iterator):
+            batch_data=preprocess_batch(batch_data,device)
+            is_last=(step+1==len(train_loader))
+            sync=((step+1)%accumulate==0 or is_last)
+            ctx=(model.no_sync() if world>1 and not sync else contextlib.nullcontext())
+            with ctx:
+                with autocast_context(device,amp):
+                    loss,parts=model(batch_data)
+                    group_start=(step//accumulate)*accumulate
+                    denom=min(accumulate,len(train_loader)-group_start)
+                    scaled_loss=loss/denom
+                if not torch.isfinite(scaled_loss):
+                    raise FloatingPointError(f'nonfinite joint loss epoch={epoch+1} step={step}')
+                scaler.scale(scaled_loss).backward()
+            if sync:
+                scaler.unscale_(opt)
+                clip=float(tc.get('grad_clip',10.0))
+                if clip>0:torch.nn.utils.clip_grad_norm_(net.parameters(),clip)
+                scaler.step(opt);scaler.update();opt.zero_grad(set_to_none=True)
+            rolling+=float(loss.detach())
+            if rank==0:
+                iterator.set_postfix({'loss':f'{rolling/(step+1):.3f}',
+                    'g':f'{float(parts["global_det_loss"]):.2f}',
+                    'local':f'{float(parts["local_det_loss"]):.2f}',
+                    'roi+':f'{parts["roi_positive"]:.2f}'})
+            if args.smoke:break
+        if args.smoke:
+            if rank==0:print('[SMOKE PASS] scratch joint forward+backward+step',flush=True)
+            break
+        sched.step()
+        if world>1:dist.barrier()
+        interval=int(tc.get('val_interval',5))
+        do_val=(epoch==0) or (epoch+1)%interval==0 or (epoch+1)==epochs
+        if rank==0:
+            score=best
+            if do_val:
+                report=evaluate(net,val_loader,device,cfg,split='val')
+                score=float(report['fused']['map5095'])
+                print('[VAL] epoch={} global={:.4f} local={:.4f} fused={:.4f} '
+                      'AP75(fused)={:.4f} replaced={} roi_count={}'.format(
+                          epoch+1,report['global']['map5095'],
+                          report['local']['map5095'],score,
+                          report['fused']['map75'],report['replaced'],
+                          report['roi_count']),flush=True)
+            else:
+                report=None
+            if do_val and score > best:
+                best=score
+                save_checkpoint(project/'weights'/'best.pt',net,opt,sched,epoch+1,best,cfg)
+            save_checkpoint(project/'weights'/'last.pt',net,opt,sched,epoch+1,best,cfg)
+            history.append({'epoch':epoch+1,'train_loss':rolling/max(len(train_loader),1),
+                            'best':best,'val':report})
+            (project/'history.json').write_text(json.dumps(history,indent=2,
+                                            ensure_ascii=False),encoding='utf-8')
+        if world>1:dist.barrier()
+    if world>1 and dist.is_initialized():dist.destroy_process_group()
+
+
+def run_val(args):
+    cfg=load_config(args.cfg)
+    device,_,_,_=setup_distributed(args.device or '5')
+    set_seed(int(cfg['train'].get('seed',0)))
+    ckpt=args.weights
+    if not ckpt:
+        ckpt=str(Path(cfg['output']['project'])/cfg['output']['name']/'weights'/'best.pt')
+    net, obj=load_scratch_checkpoint(ckpt,cfg,device,verbose=False)
+    loader,_=make_loader(cfg,args.split,batch_size=int(args.batch),workers=int(args.workers))
+    result=evaluate(net,loader,device,cfg,split=args.split,smoke=args.smoke)
+    print(f'[CHECKPOINT] {ckpt} | epoch={obj["epoch"]} | split={args.split}')
+    for k in ('global','local','fused'):
+        row=result[k]
+        print(f'{k:>7s} P={row["precision"]:.5f} R={row["recall"]:.5f} '
+              f'AP50={row["map50"]:.5f} AP75={row["map75"]:.5f} '
+              f'AP50:95={row["map5095"]:.5f}')
+    print(f'ROIs={result["roi_count"]}, replaced={result["replaced"]}, '
+          f'added={result["added"]}, images={result["images"]}')
+    out=Path(args.save_dir or 'runs/gmls_v2_global_local_evaluation')
+    out.mkdir(parents=True,exist_ok=True)
+    f=out/f'{args.split}_metrics.json'
+    f.write_text(json.dumps(result,ensure_ascii=False,indent=2),encoding='utf-8')
+    print(f'[SAVED] {f}')

@@ -1,0 +1,11 @@
+nohup: 忽略输入
+Traceback (most recent call last):
+  File "/mnt/sda/taochangyong/Projects/Model/YOLO-tcy_v5/train_global_local_roi.py", line 130, in <module>
+    if __name__=='__main__':main()
+  File "/mnt/sda/taochangyong/Projects/Model/YOLO-tcy_v5/train_global_local_roi.py", line 61, in main
+    _,train_loader,sampler=loader_for(cfg,'train',batch_per_rank,distributed,rank,world_size)
+  File "/mnt/sda/taochangyong/Projects/Model/YOLO-tcy_v5/train_global_local_roi.py", line 27, in loader_for
+    ds=RGBTLocalROIDataset(data['roi_root'],split,augment=train,
+  File "/mnt/sda/taochangyong/Projects/Model/YOLO-tcy_v5/global_local/roi_dataset.py", line 24, in __init__
+    raise FileNotFoundError(f'No ROI manifest {manifest}. Run export_global_local_rois.py')
+FileNotFoundError: No ROI manifest /mnt/sda/taochangyong/Projects/Model/YOLO-tcy_v5/data_generated/global_local_rois_top2/train.jsonl. Run export_global_local_rois.py
