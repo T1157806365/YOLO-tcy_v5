@@ -11,8 +11,8 @@ traincc:
   conda activate tcy
   cd /mnt/sda/taochangyong/Projects/Model/YOLO-tcy_v5
   python val_gmls_v2_global_local_scratch.py \
-    --cfg configs/experiments/gmls_v2/uavcb_gmls_v2_yolo26m_1920_640_global_local_scratch.yaml \
-    --weights runs/local_scratch/yolo26m_UAVCB_GMLSv2_BHLRv2_GlobalLocalScratch_100e_seed0/weights/best.pt \
+    --cfg /mnt/sda/taochangyong/Projects/Model/YOLO-tcy_v5/configs/experiments/gmls_v2/uavcb_gmls_v2_yolo26m_1920_640_global_local_scratch_ddp2.yaml \
+    --weights runs/local_scratch/yolo26m_UAVCB_GMLSv2_BHLRv2_GlobalLocalScratch_DDP2_100e_seed0/weights/best.pt \
     --split test \
     --device 2 \
     --batch 4 \
@@ -21,7 +21,7 @@ model:
   variant: rlsfa_gtga_centered_bhlr_v2
   name: yolo26m
   nc: 1
-  pretrained: true
+  pretrained: false
   fusion: add
   align_mode: bilinear
   rlsfa_gtga_centered:
@@ -78,7 +78,7 @@ model:
     roi_size: 640
     topk: 2
     local_model: yolo26m
-    local_pretrained: true
+    local_pretrained: false
     lambda_local: 1.0
     gt_crop_prob: 0.7
     gt_jitter: 0.12
