@@ -4,21 +4,33 @@ traincc:
   mkdir -p logs pid
   nohup python -u train_gmls_v2_roi_hybrid.py \
     --cfg configs/experiments/gmls_v2_roi/antiuav_gmls_v2_roi_single_head_hybrid_officialpt_top2_100e.yaml \
-    > logs/GMLSv2_OneHeadHybrid_Top2_100e_antiuav.log 2>&1 &
-  echo $! > pid/GMLSv2_OneHeadHybrid_Top2_100e_antiuav.pid
-  tail -f logs/GMLSv2_OneHeadHybrid_Top2_100e_antiuav.log
+    > logs/AntiUAV_Hybrid_AMPGuardV2.log 2>&1 &
+  echo $! > pid/AntiUAV_Hybrid_AMPGuardV2.pid
+  tail -f logs/AntiUAV_Hybrid_AMPGuardV2.log
 
   conda activate tcy
   cd /mnt/sda/taochangyong/Projects/Model/YOLO-tcy_v5
   python val_gmls_v2_roi_hybrid.py \
     --cfg configs/experiments/gmls_v2_roi/antiuav_gmls_v2_roi_single_head_hybrid_officialpt_top2_100e.yaml \
-    --weights runs/gmls_v2_roi_hybrid/yolo26m_AntiUAV_GMLSv2_SingleHead_GlobalAux_Top2_OfficialPT_100e_seed0/weights/best.pt \
+    --weights runs/gmls_v2_roi_hybrid/yolo26m_AntiUAV_GMLSv2_SingleHead_GlobalAux_Top2_OfficialPT_100e_seed0_EmptyGTFixV1/weights/best.pt \
     --split test \
-    --device 3 \
+    --device 1 \
     --batch 4 \
     --workers 4 \
     --warmup 3 \
     --plots
+
+  conda activate tcy
+  cd /mnt/sda/taochangyong/Projects/Model/YOLO-tcy_v5
+  python visualize_gmls_v2_roi_hybrid_full.py \
+    --cfg configs/experiments/gmls_v2_roi/antiuav_gmls_v2_roi_single_head_hybrid_officialpt_top2_100e.yaml \
+    --weights runs/gmls_v2_roi_hybrid/yolo26m_AntiUAV_GMLSv2_SingleHead_GlobalAux_Top2_OfficialPT_100e_seed0_EmptyGTFixV1/weights/best.pt \
+    --split test \
+    --device 3 \
+    --indices 0 500 1000 1500 2000 2500 3000 3500 4000 \
+    --conf 0.25 \
+    --iou 0.70 \
+    --canvas 1200
 model:
   variant: rlsfa_gtga_centered_bhlr_v2
   name: yolo26m
@@ -85,6 +97,7 @@ model:
     geometry_grad_scale: 0.1
     min_gt_visible: 0.6
     topk: 2
+    top2_diverse_enabled: true
     p3_channels: 512
     min_roi_separation: 0.1
     aux_bn_eval: true
@@ -97,9 +110,9 @@ data:
   pair_mode: relative
 train:
   device: 2,3
-  batch: 4
+  batch: 8
   batch_mode: global
-  accumulate: 4
+  accumulate: 2
   val_batch: 4
   val_workers: 4
   val_interval: 1
@@ -155,6 +168,10 @@ loss:
     v2_quality_iou_weight: 0.8
     v2_quality_advantage: 0.05
     v2_route_target_temperature: 0.05
+    lambda_final_center: 0.25
+    final_center_norm_px: 8.0
+    final_center_beta: 0.5
+    final_center_warmup_epochs: 10
   roi:
     lambda_local: 1.0
     lambda_guide: 0.2

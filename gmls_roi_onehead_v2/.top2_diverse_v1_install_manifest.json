@@ -1,0 +1,21 @@
+{
+  "files": {
+    "gmls_roi_onehead_v2/model.py": {
+      "backup": "gmls_roi_onehead_v2/model.py.before_top2_diverse_v1.bak",
+      "before": "1b0992e60d16f43f9e0bb60e56bdc080c5418b813eefdca3b5dd21d86fa208df",
+      "after": "eb7f0f17ab042d8bef0f73df6e770a572dcc3a1e5e0fa238c2dabe133c5e9939"
+    },
+    "gmls_roi_onehead_v2/benchmark.py": {
+      "backup": "gmls_roi_onehead_v2/benchmark.py.before_top2_diverse_v1.bak",
+      "before": "d7aff5f0089afc44f56d48deb442e0664301f26aaecfca9d3af3dd3e6d091455",
+      "after": "30e1e665e51d907a5cfe2bc44cdc633d867e422ee15b59c0ae866704d52c6d0d"
+    },
+    "configs/experiments/gmls_v2_roi/uavcb_gmls_v2_roi_single_head_hybrid_officialpt_top2_100e.yaml": {
+      "backup": "configs/experiments/gmls_v2_roi/uavcb_gmls_v2_roi_single_head_hybrid_officialpt_top2_100e.yaml.before_top2_diverse_v1.bak",
+      "before": "c70696b1e43f4c6eb6c86436e021652ffea2ec6ab343e452eefe5fd61a2b5df7",
+      "after": "1ef6999f3a149671cd07f4a2fcb5f468e9bb24701a9c29994cca125bed1d6d19"
+    }
+  },
+  "new_module_created": true,
+  "module_sha": "3c80b3014d1cd2485be27d6ed6f08fdc5ad6769694b790e188c4f9d960d8a877"
+}

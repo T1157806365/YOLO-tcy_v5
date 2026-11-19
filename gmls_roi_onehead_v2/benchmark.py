@@ -231,7 +231,13 @@ def run_benchmark(args):
         run_dir = checkpoint.parent.parent
     else:
         run_dir = (Path(cfg['output']['project']) / cfg['output']['name']).resolve()
-    paths = report_paths(run_dir, args.split)
+    # TOP2_DIVERSE_INTEGRATED_V1: keep old evaluation/test/metrics.* untouched.
+    rc = cfg.get('model', {}).get('roi_single_head', {})
+    use_diverse = bool(rc.get('top2_diverse_enabled', False)) and int(rc.get('topk', 2)) == 2
+    report_split = f'top2_diverse_v1/{args.split}' if use_diverse else args.split
+    paths = report_paths(run_dir, report_split)
+    if use_diverse:
+        print(f'[TOP2 DIVERSE V1] ENABLED; results: {paths["directory"]}', flush=True)
     if args.plots is not None and str(args.plots).lower() not in ('none', 'false', '0'):
         print(f"[PLOTS] Reusing --plots request; plots will be saved INSIDE training folder: {paths['plots']}", flush=True)
         # Old preview files exclusively managed by this benchmark; do not touch checkpoints.

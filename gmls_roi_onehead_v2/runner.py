@@ -53,6 +53,73 @@ def _asfloat(x):
     return float(x)
 
 
+
+
+# NAN_GUARD_V1: synchronized loss/gradient checks
+# AMP_GRAD_GUARD_V2: AMP-overflow aware gradient guard
+
+def _nan_guard_report(run_dir, epoch, step, rank, batch, parts, reason, *, grad_norm=None, amp_scale=None, grad_params=None):
+    """One JSON per offending rank; never serializes full private images."""
+    import json
+    import math
+    from pathlib import Path
+    out_dir = Path(run_dir) / 'nan_diagnostics'
+    out_dir.mkdir(parents=True, exist_ok=True)
+    fields = ('rgb_path', 'tir_path', 'rgb_label_path', 'tir_label_path')
+    result = {
+        'reason': reason, 'epoch': epoch + 1, 'step': step + 1, 'rank': rank,
+        'grad_norm': None if grad_norm is None else float(grad_norm),
+        'amp_scale': amp_scale,
+        'nonfinite_parameters': grad_params or [],
+        'samples': {k: [str(x) for x in batch.get(k, [])] for k in fields},
+        'parts': {}, 'tensors': {},
+    }
+    for k, v in parts.items():
+        if torch.is_tensor(v):
+            t = v.detach().float()
+            if t.numel():
+                result['parts'][k] = {
+                    'mean': float(t.mean().item()),
+                    'all_finite': bool(torch.isfinite(t).all().item())
+                }
+        else:
+            try: result['parts'][k] = float(v)
+            except (TypeError, ValueError): result['parts'][k] = repr(v)
+    for k in ('rgb_img','rgb_semantic_img','tir_img',
+              'rgb_bboxes','rgb_semantic_bboxes','tir_bboxes',
+              'rgb_cls','tir_cls'):
+        v = batch.get(k)
+        if not torch.is_tensor(v):
+            continue
+        t = v.detach()
+        finite = torch.isfinite(t)
+        result['tensors'][k] = {
+            'shape': list(t.shape),
+            'all_finite': bool(finite.all().item()),
+            'nonfinite_count': int((~finite).sum().item()),
+        }
+        if finite.any():
+            result['tensors'][k]['min'] = float(t[finite].min().item())
+            result['tensors'][k]['max'] = float(t[finite].max().item())
+    path = out_dir / f'epoch{epoch+1:03d}_step{step+1:05d}_rank{rank}_{reason}.json'
+    path.write_text(json.dumps(result, indent=2, ensure_ascii=False, allow_nan=True), encoding='utf-8')
+    print(f'[NAN GUARD] rank={rank} epoch={epoch+1} step={step+1} '
+          f'reason={reason}, report={path}', flush=True)
+    print('[NAN GUARD] loss components:', result['parts'], flush=True)
+    print('[NAN GUARD] RGB paths:', result['samples'].get('rgb_path'), flush=True)
+    return path
+
+
+def _any_bad_loss(loss, parts):
+    if not bool(torch.isfinite(loss.detach()).all().item()):
+        return True
+    # Do not confuse missing optional DFL log with NaN actual losses.
+    for v in parts.values():
+        if torch.is_tensor(v) and not bool(torch.isfinite(v.detach()).all().item()):
+            return True
+    return False
+
+
 def _metric_row(metric:DetMetrics):
     metric.process(plot=False)
     pr,re,ap50,ap=metric.mean_results()
@@ -202,6 +269,7 @@ def run_train(args):
     val_loader=None if args.smoke else build_loader(
         cfg,'val',int(tc.get('val_batch',1)),int(tc.get('val_workers',2)),rank,world)[0]
     net=GMLSV2OneHeadHybrid(cfg,verbose=rank==0).to(device)
+    # GEO_FINAL_CENTER_SCRATCH100_V2: no trained-checkpoint initialization.
     run_dir=Path(cfg['output']['project'])/cfg['output']['name']
     resumed=None
     if args.resume:
@@ -215,8 +283,9 @@ def run_train(args):
     epochs=int(tc.get('epochs',100))
     sched=build_scheduler(opt,epochs,lrf=float(tc.get('lrf',.01)))
     amp=bool(tc.get('amp',True)) and device.type=='cuda'
-    scaler=torch.amp.GradScaler('cuda',enabled=amp)
+    scaler=torch.amp.GradScaler('cuda',enabled=amp,init_scale=float(tc.get('amp_init_scale',1024.0)))
     first_epoch=0;best=-1.;best_epoch=0
+    best_align=-1.0
     if resumed is not None:
         opt.load_state_dict(resumed['optimizer_state_dict'])
         sched.load_state_dict(resumed['scheduler_state_dict'])
@@ -224,6 +293,16 @@ def run_train(args):
             scaler.load_state_dict(resumed['scaler_state_dict'])
         first_epoch=int(resumed['epoch']);best=float(resumed.get('best_map5095',-1))
         best_epoch=int(resumed.get('best_epoch',0))
+        # Restore alignment best on resume, from accumulated epoch history.
+        history_path=Path(cfg['output']['project'])/cfg['output']['name']/'history.jsonl'
+        if history_path.is_file():
+            for line in history_path.read_text(encoding='utf-8').splitlines():
+                if not line.strip():continue
+                try:
+                    rec=json.loads(line)
+                    val=rec.get('val_align_iou',None)
+                    if val is not None:best_align=max(best_align,float(val))
+                except (ValueError,TypeError):pass
     if rank==0:
         print(f'[ONE HEAD V2 HYBRID OFFICIAL PT] world={world} microbatch/rank={batch//world} '
               f'accumulate={accum} effective_batch≈{batch*accum} epochs={epochs} '
@@ -235,6 +314,12 @@ def run_train(args):
         if sampler is not None:sampler.set_epoch(epoch)
         opt.zero_grad(set_to_none=True)
         count=0;sum_stats={};lr=float(opt.param_groups[0]['lr'])
+        # A failed microbatch invalidates the ENTIRE accumulation window on all ranks.
+        bad_window=False; skipped_windows=0
+        max_skipped=int(tc.get('nan_guard_max_windows',3))
+        # AMP scaler overflows are normal early in training; they are not bad batches.
+        amp_overflow_streak=0
+        max_amp_overflows=int(tc.get('amp_max_consecutive_overflows',16))
         bar=tqdm(train_loader,disable=rank!=0,ncols=154,desc=f'one-head {epoch+1}/{epochs}')
         for step,batch_data in enumerate(bar):
             batch_data=preprocess_batch(batch_data,device)
@@ -243,20 +328,91 @@ def run_train(args):
             denom=min(accum,len(train_loader)-group_start)
             ctx=model.no_sync() if world>1 and not sync else contextlib.nullcontext()
             with ctx:
-                with autocast_context(device,amp):
-                    loss,parts=model(batch_data)
-                    scaled=loss/denom
-                if not bool(torch.isfinite(scaled).all()):
-                    raise FloatingPointError(f'Non-finite loss epoch={epoch+1} step={step+1}')
-                scaler.scale(scaled).backward()
+                # All ranks execute the same sequence of collectives, regardless
+                # of which rank first encounters invalid values.
+                if not bad_window:
+                    with autocast_context(device,amp):
+                        loss,parts=model(batch_data)
+                        scaled=loss/denom
+                    local_bad=_any_bad_loss(scaled,parts)
+                else:
+                    parts={};local_bad=False
+                bad_flag=torch.tensor(int(local_bad),device=device,dtype=torch.int32)
+                if world>1:dist.all_reduce(bad_flag,op=dist.ReduceOp.MAX)
+                if int(bad_flag.item()):
+                    if local_bad:
+                        _nan_guard_report(run_dir,epoch,step,rank,batch_data,parts,'loss')
+                    # A synchronized DDP forward must have a matching backward;
+                    # otherwise the next iteration may fail at reducer rebuild.
+                    if sync and not bad_window:
+                        safe_zero=torch.nan_to_num(scaled,nan=0.0,posinf=0.0,neginf=0.0).mul(0.0)
+                        scaler.scale(safe_zero).backward()
+                    bad_window=True
+                    opt.zero_grad(set_to_none=True)
+                elif not bad_window:
+                    scaler.scale(scaled).backward()
             if sync:
-                scaler.unscale_(opt)
-                clip=float(tc.get('grad_clip',10.))
-                if clip>0:torch.nn.utils.clip_grad_norm_(net.parameters(),clip)
-                scaler.step(opt);scaler.update();opt.zero_grad(set_to_none=True)
-            count+=1
-            for key,val in parts.items():
-                sum_stats[key]=sum_stats.get(key,0.)+_asfloat(val)
+                if bad_window:
+                    skipped_windows+=1
+                    opt.zero_grad(set_to_none=True)
+                    bad_window=False
+                    if rank==0:print(f'[NAN GUARD] discarded accumulation window at step={step+1}; total={skipped_windows}',flush=True)
+                else:
+                    scaler.unscale_(opt)
+                    clip=float(tc.get('grad_clip',10.))
+                    norm=torch.nn.utils.clip_grad_norm_(net.parameters(),max_norm=clip if clip>0 else float('inf'))
+                    bad_norm=not bool(torch.isfinite(norm.detach()).item())
+                    norm_flag=torch.tensor(int(bad_norm),device=device,dtype=torch.int32)
+                    if world>1:dist.all_reduce(norm_flag,op=dist.ReduceOp.MAX)
+                    if int(norm_flag.item()):
+                        # Expensive per-parameter scan ONLY on failed windows.
+                        bad_grads=[]
+                        if bad_norm:
+                            for pname, pvalue in net.named_parameters():
+                                grad=pvalue.grad
+                                if grad is None: continue
+                                bad=torch.logical_not(torch.isfinite(grad))
+                                if bool(bad.any().item()):
+                                    bad_grads.append({'parameter':pname,
+                                                      'shape':list(grad.shape),
+                                                      'nan':int(torch.isnan(grad).sum().item()),
+                                                      'inf':int(torch.isinf(grad).sum().item())})
+                        old_scale=float(scaler.get_scale()) if amp else 1.0
+                        # AMP may overflow with finite forward loss, especially at start.
+                        # GradScaler should reduce scale and skip this update. Do not
+                        # mistake its standard backoff for corrupt labels/model weights.
+                        if amp and old_scale>1.0 and amp_overflow_streak<max_amp_overflows:
+                            amp_overflow_streak+=1
+                            new_scale=max(old_scale/2.0,1.0)
+                            scaler.update(new_scale=new_scale)
+                            if rank==0:
+                                print(f'[AMP BACKOFF] step={step+1} scale={old_scale:g}->{new_scale:g} '
+                                      f'consecutive={amp_overflow_streak} bad_parameters={len(bad_grads)} '
+                                      f'first={[g["parameter"] for g in bad_grads[:5]]}',flush=True)
+                        else:
+                            if bad_norm:
+                                _nan_guard_report(run_dir,epoch,step,rank,batch_data,parts,'gradient',
+                                                  grad_norm=float(norm.item()),amp_scale=old_scale,
+                                                  grad_params=bad_grads[:150])
+                            if amp: scaler.update(new_scale=max(old_scale/2.0,1/1024))
+                            skipped_windows+=1
+                            if rank==0:
+                                print(f'[NAN GUARD] persistent nonfinite gradient step={step+1} '
+                                      f'failed_windows={skipped_windows} amp_scale={old_scale:g}',flush=True)
+                        opt.zero_grad(set_to_none=True)
+                    else:
+                        amp_overflow_streak=0
+                        scaler.step(opt);scaler.update()
+                        opt.zero_grad(set_to_none=True)
+                if skipped_windows>max_skipped:
+                    raise FloatingPointError(
+                        f'[NAN GUARD] exceeded {max_skipped} bad windows in epoch {epoch+1}. '
+                        f'Inspect {run_dir}/nan_diagnostics; do not silently train through persistent NaNs.'
+                    )
+            if parts and not local_bad:
+                count+=1
+                for key,val in parts.items():
+                    sum_stats[key]=sum_stats.get(key,0.)+_asfloat(val)
             if rank==0 and ((step+1)%max(1,int(tc.get('progress_interval',15)))==0 or sync):
                 bar.set_postfix({
                     'total':f'{sum_stats.get("total",0)/count:.3f}',
@@ -284,6 +440,10 @@ def run_train(args):
         report=evaluate(net,val_loader,device,cfg,rank=rank,world=world) if do_val else None
         if rank==0:
             score=report['metrics']['AP50:95'] if report else best
+            # GEO_FINAL_CENTER_SCRATCH100_V2: preserve best alignment model separately.
+            align_score=float(report['align_iou']) if report else -1.0
+            align_improved=(report is not None and align_score>best_align)
+            if align_improved:best_align=align_score
             improved=report is not None and score>best
             if improved:best=score;best_epoch=epoch+1
             print('\n'+'='*104,flush=True)
@@ -295,6 +455,7 @@ def run_train(args):
             print('[TRAIN GLOBAL AUX (SHARED HEAD)] '+fmt('global_aux_det','global_aux_weighted','global_aux_box','global_aux_cls','global_aux_dfl'),flush=True)
             print('[TRAIN ALIGN] '+fmt('align_weighted','align_anchor','align_coarse','align_scale','align_targetness'),flush=True)
             print('[GMLS-v2]     '+fmt('align_v2_quality','align_v2_route','align_gmls_gt_quality','align_dmls_gt_quality'),flush=True)
+            print('[GEO FINAL]   '+fmt('align_final_center','align_final_center_px','align_final_center_pairs'),flush=True)
             print('[ROI GUIDE]   '+fmt('roi_guide','roi_center','roi_positive','roi_tir_valid','gt_assist','roi_count'),flush=True)
             if report:
                 m=report['metrics']
@@ -314,6 +475,8 @@ def run_train(args):
         sched.step()  # all ranks
         if rank==0:
             if improved:_checkpoint(run_dir/'weights'/'best.pt',net,opt,sched,scaler,epoch+1,best,best_epoch,cfg)
+            if align_improved:
+                _checkpoint(run_dir/'weights'/'best_align.pt',net,opt,sched,scaler,epoch+1,best,best_epoch,cfg)
             _checkpoint(run_dir/'weights'/'last.pt',net,opt,sched,scaler,epoch+1,best,best_epoch,cfg)
             row={'epoch':epoch+1,'lr':lr,'train_seconds':train_seconds,'best':best,'best_epoch':best_epoch,**stats}
             if report:

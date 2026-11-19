@@ -86,9 +86,17 @@ def _guide_supervision(logits:torch.Tensor, pred:torch.Tensor, gt:torch.Tensor,
     crossentropy=(-target*logp).sum(1)
     guide=(crossentropy*validf).sum()/validf.sum().clamp_min(1)
     # 640 semantic pixel error rather than only a tiny normalized loss.
-    err=(pred-gt).square().sum(-1).sqrt()
-    center=(err*validf).sum()/validf.sum().clamp_min(1)
-    if not bool(valid.any()):
+    # EMPTY_GT_GRAD_FIX_V1: exclude invalid GT before calculating distance
+    # On an empty-target image _gt_centers returns gt=pred.detach(), valid=False.
+    # sqrt(sum((pred-gt)**2)) at exactly zero has undefined derivative, and
+    # multiplying its output by a zero validity mask does NOT prevent NaN grads.
+    # Select valid samples BEFORE the norm; vector_norm defines zero gradient
+    # at exact matches. Keep the original Euclidean center-loss semantics.
+    if bool(valid.any()):
+        center=torch.linalg.vector_norm(
+            (pred.float()-gt.float())[valid], ord=2, dim=-1
+        ).mean()
+    else:
         guide=logits.sum()*0.0
         center=pred.sum()*0.0
     return guide,center
