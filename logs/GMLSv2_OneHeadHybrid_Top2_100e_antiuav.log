@@ -1,253 +1,0 @@
-nohup: 忽略输入
-[AUTO DDP] physical GPUs=2,3; ranks=2; executable=/mnt/sda/taochangyong/.conda/envs/tcy/bin/python
-
-*****************************************
-Setting OMP_NUM_THREADS environment variable for each process to be 1 in default, to avoid your system being overloaded, please further tune the variable for optimal performance in your application as needed. 
-*****************************************
-
-============================================================
-RGB-T Paired Dataset
-============================================================
-Split        : train
-RGB YAML     : /mnt/sda/taochangyong/Projects/Model/YOLO-tcy_v5/configs/datasets/Anti-UAV-RGB.yaml
-TIR YAML     : /mnt/sda/taochangyong/Projects/Model/YOLO-tcy_v5/configs/datasets/Anti-UAV-TIR.yaml
-RGB images   : 7499
-TIR images   : 7499
-Pairs        : 7499
-Missing TIR  : 0
-Missing RGB  : 0
-Pair mode    : relative
-RGB imgsz    : (1920, 1920)
-TIR imgsz    : (640, 640)
-TIR channels : 3
-Classes      : 1
-============================================================
-
-RSD-T RGB high: (1920, 1920)
-RSD-T RGB semantic: (640, 640)
-
-============================================================
-RGB-T Paired Dataset
-============================================================
-Split        : train
-RGB YAML     : /mnt/sda/taochangyong/Projects/Model/YOLO-tcy_v5/configs/datasets/Anti-UAV-RGB.yaml
-TIR YAML     : /mnt/sda/taochangyong/Projects/Model/YOLO-tcy_v5/configs/datasets/Anti-UAV-TIR.yaml
-RGB images   : 7499
-TIR images   : 7499
-Pairs        : 7499
-Missing TIR  : 0
-Missing RGB  : 0
-Pair mode    : relative
-RGB imgsz    : (1920, 1920)
-TIR imgsz    : (640, 640)
-TIR channels : 3
-Classes      : 1
-============================================================
-
-RSD-T RGB high: (1920, 1920)
-RSD-T RGB semantic: (640, 640)
-
-============================================================
-RGB-T Paired Dataset
-============================================================
-Split        : val
-RGB YAML     : /mnt/sda/taochangyong/Projects/Model/YOLO-tcy_v5/configs/datasets/Anti-UAV-RGB.yaml
-TIR YAML     : /mnt/sda/taochangyong/Projects/Model/YOLO-tcy_v5/configs/datasets/Anti-UAV-TIR.yaml
-RGB images   : 3109
-TIR images   : 3109
-Pairs        : 3109
-Missing TIR  : 0
-Missing RGB  : 0
-Pair mode    : relative
-RGB imgsz    : (1920, 1920)
-TIR imgsz    : (640, 640)
-TIR channels : 3
-Classes      : 1
-============================================================
-
-RSD-T RGB high: (1920, 1920)
-RSD-T RGB semantic: (640, 640)
-
-============================================================
-Build RGB-T Dual-Backbone YOLO
-============================================================
-Model       : yolo26m
-Model YAML  : /mnt/sda/taochangyong/Projects/Model/YOLO-tcy_v5/configs/models/yolo26/yolo26m.yaml
-Pretrained  : /mnt/sda/taochangyong/Projects/Model/YOLO-tcy_v5/configs/weights/yolo26/yolo26m.pt
-Classes     : 1
-Fusion      : add
-Align       : bilinear
-Overriding model.yaml nc=80 with nc=1
-
-============================================================
-RGB-T Paired Dataset
-============================================================
-Split        : val
-RGB YAML     : /mnt/sda/taochangyong/Projects/Model/YOLO-tcy_v5/configs/datasets/Anti-UAV-RGB.yaml
-TIR YAML     : /mnt/sda/taochangyong/Projects/Model/YOLO-tcy_v5/configs/datasets/Anti-UAV-TIR.yaml
-RGB images   : 3109
-TIR images   : 3109
-Pairs        : 3109
-Missing TIR  : 0
-Missing RGB  : 0
-Pair mode    : relative
-RGB imgsz    : (1920, 1920)
-TIR imgsz    : (640, 640)
-TIR channels : 3
-Classes      : 1
-============================================================
-
-RSD-T RGB high: (1920, 1920)
-RSD-T RGB semantic: (640, 640)
-Overriding model.yaml nc=80 with nc=1
-Transferred 756/768 items from pretrained weights
-Transferred 756/768 items from pretrained weights
-Backbone len: 11
-Fusion indices: [4, 6, 10]
-  layer 4: RGB C=512, TIR C=512
-  layer 6: RGB C=512, TIR C=512
-  layer 10: RGB C=512, TIR C=512
-YOLO stride : [8.0, 16.0, 32.0]
-End2End     : True
-============================================================
-
-
-========================================================================
-RLSFA coarse anchor + Local-GTGA centered scale + guided BHLR-v2
-========================================================================
-Model                 : yolo26m
-Fusion                : add
-Reference scale       : P3
-Translation           : targetness-weighted coarse correlation
-Scale pivot           : coarse UAV anchor (NOT image center)
-Scale                 : local sigma_T / sigma_R around UAV anchors
-Frequency refinement  : OFF
-Fine translation      : OFF
-Final warp            : ONE center-preserving unified warp
-Reliability gate      : OFF
-BHLR scales           : []
-BHLR guidance         : alignment
-Guidance formula      : 3ch [A_RGB, A_TIR_aligned, J] -> 1x1 residual fusion
-========================================================================
-
-[RLSFA-GTGA-Centered] ignored legacy keys: ['bhlr_geometry_routing_cfg', 'bhlr_target_guidance_channels']
-[factory] variant       : rlsfa_gtga_centered_bhlr_v2
-[factory] fusion_indices: auto
-
-============================================================
-Build RGB-T Dual-Backbone YOLO
-============================================================
-Model       : yolo26m
-Model YAML  : /mnt/sda/taochangyong/Projects/Model/YOLO-tcy_v5/configs/models/yolo26/yolo26m.yaml
-Pretrained  : /mnt/sda/taochangyong/Projects/Model/YOLO-tcy_v5/configs/weights/yolo26/yolo26m.pt
-Classes     : 1
-Fusion      : add
-Align       : bilinear
-Overriding model.yaml nc=80 with nc=1
-Overriding model.yaml nc=80 with nc=1
-Transferred 756/768 items from pretrained weights
-Transferred 756/768 items from pretrained weights
-Backbone len: 11
-Fusion indices: [4, 6, 10]
-  layer 4: RGB C=512, TIR C=512
-  layer 6: RGB C=512, TIR C=512
-  layer 10: RGB C=512, TIR C=512
-YOLO stride : [8.0, 16.0, 32.0]
-End2End     : True
-============================================================
-
-[OFFICIAL YOLO PT] /mnt/sda/taochangyong/Projects/Model/YOLO-tcy_v5/configs/weights/yolo26/yolo26m.pt loaded into global RGB/TIR and local RGB/TIR
-[ARCHITECTURE] GMLS-v2 global encoder + ROI guidance + native RGB/TIR crop + ONE YOLO26m Detect
-[V2 HYBRID] train: shared one Detect runs on global & 2 local ROI(s); val/test: ONLY 2 local ROI(s), no global Detect
-[V2 HYBRID] global_aux_lambda=0.5 official_pt=/mnt/sda/taochangyong/Projects/Model/YOLO-tcy_v5/configs/weights/yolo26/yolo26m.pt
-[ONE HEAD V2 HYBRID OFFICIAL PT] world=2 microbatch/rank=4 accumulate=2 effective_batch≈16 epochs=100 resume=False start_epoch=0
-[PRETRAINED] official YOLO26m.pt=/mnt/sda/taochangyong/Projects/Model/YOLO-tcy_v5/configs/weights/yolo26/yolo26m.pt
-one-head 1/100:   0%|                                                                                                             | 0/938 [00:00<?, ?it/s]one-head 1/100:   0%|                                                                                                     | 1/938 [00:02<44:27,  2.85s/it][rank0]:[W1119 12:46:27.482392929 reducer.cpp:1400] Warning: find_unused_parameters=True was specified in DDP constructor, but did not find any unused parameters in the forward pass. This flag results in an extra traversal of the autograd graph every iteration,  which can adversely affect performance. If your model indeed never has any unused parameters in the forward pass, consider turning this flag off. Note that this warning may be a false positive if your model has flow control causing later iterations to have unused parameters. (function operator())
-[rank1]:[W1119 12:46:27.491473832 reducer.cpp:1400] Warning: find_unused_parameters=True was specified in DDP constructor, but did not find any unused parameters in the forward pass. This flag results in an extra traversal of the autograd graph every iteration,  which can adversely affect performance. If your model indeed never has any unused parameters in the forward pass, consider turning this flag off. Note that this warning may be a false positive if your model has flow control causing later iterations to have unused parameters. (function operator())
-[AMP BACKOFF] step=2 scale=1024->512 consecutive=1 bad_parameters=893 first=['global_encoder.model.0.conv.weight', 'global_encoder.model.0.bn.weight', 'global_encoder.model.0.bn.bias', 'global_encoder.model.1.conv.weight', 'global_encoder.model.1.bn.weight']
-one-head 1/100:   0%|                      | 1/938 [00:03<44:27,  2.85s/it, total=127.061, local=80.177, gaux=32.407, align=6.767, roi+=0.81, GTcrop=0.62]one-head 1/100:   0%|                      | 2/938 [00:03<23:11,  1.49s/it, total=127.061, local=80.177, gaux=32.407, align=6.767, roi+=0.81, GTcrop=0.62]one-head 1/100:   0%|                      | 3/938 [00:03<15:14,  1.02it/s, total=127.061, local=80.177, gaux=32.407, align=6.767, roi+=0.81, GTcrop=0.62][AMP BACKOFF] step=4 scale=512->256 consecutive=2 bad_parameters=893 first=['global_encoder.model.0.conv.weight', 'global_encoder.model.0.bn.weight', 'global_encoder.model.0.bn.bias', 'global_encoder.model.1.conv.weight', 'global_encoder.model.1.bn.weight']
-one-head 1/100:   0%|                      | 3/938 [00:04<15:14,  1.02it/s, total=119.030, local=74.614, gaux=28.814, align=7.752, roi+=0.81, GTcrop=0.69]one-head 1/100:   0%|                      | 4/938 [00:04<12:23,  1.26it/s, total=119.030, local=74.614, gaux=28.814, align=7.752, roi+=0.81, GTcrop=0.69]one-head 1/100:   1%|                      | 5/938 [00:04<10:00,  1.55it/s, total=119.030, local=74.614, gaux=28.814, align=7.752, roi+=0.81, GTcrop=0.69][AMP BACKOFF] step=6 scale=256->128 consecutive=3 bad_parameters=893 first=['global_encoder.model.0.conv.weight', 'global_encoder.model.0.bn.weight', 'global_encoder.model.0.bn.bias', 'global_encoder.model.1.conv.weight', 'global_encoder.model.1.bn.weight']
-one-head 1/100:   1%|                      | 5/938 [00:05<10:00,  1.55it/s, total=114.327, local=70.316, gaux=27.989, align=8.162, roi+=0.88, GTcrop=0.71]one-head 1/100:   1%|▏                     | 6/938 [00:05<09:22,  1.66it/s, total=114.327, local=70.316, gaux=27.989, align=8.162, roi+=0.88, GTcrop=0.71]one-head 1/100:   1%|▏                     | 7/938 [00:05<08:12,  1.89it/s, total=114.327, local=70.316, gaux=27.989, align=8.162, roi+=0.88, GTcrop=0.71][AMP BACKOFF] step=8 scale=128->64 consecutive=4 bad_parameters=893 first=['global_encoder.model.0.conv.weight', 'global_encoder.model.0.bn.weight', 'global_encoder.model.0.bn.bias', 'global_encoder.model.1.conv.weight', 'global_encoder.model.1.bn.weight']
-one-head 1/100:   1%|▏                     | 7/938 [00:06<08:12,  1.89it/s, total=115.021, local=70.590, gaux=28.692, align=7.889, roi+=0.86, GTcrop=0.62]one-head 1/100:   1%|▏                     | 8/938 [00:06<08:14,  1.88it/s, total=115.021, local=70.590, gaux=28.692, align=7.889, roi+=0.86, GTcrop=0.62]one-head 1/100:   1%|▏                     | 9/938 [00:06<07:28,  2.07it/s, total=115.021, local=70.590, gaux=28.692, align=7.889, roi+=0.86, GTcrop=0.62][AMP BACKOFF] step=10 scale=64->32 consecutive=5 bad_parameters=893 first=['global_encoder.model.0.conv.weight', 'global_encoder.model.0.bn.weight', 'global_encoder.model.0.bn.bias', 'global_encoder.model.1.conv.weight', 'global_encoder.model.1.bn.weight']
-one-head 1/100:   1%|▏                     | 9/938 [00:06<07:28,  2.07it/s, total=117.628, local=72.843, gaux=28.710, align=8.152, roi+=0.84, GTcrop=0.62]one-head 1/100:   1%|▏                    | 10/938 [00:06<07:43,  2.00it/s, total=117.628, local=72.843, gaux=28.710, align=8.152, roi+=0.84, GTcrop=0.62]one-head 1/100:   1%|▏                    | 11/938 [00:07<07:08,  2.16it/s, total=117.628, local=72.843, gaux=28.710, align=8.152, roi+=0.84, GTcrop=0.62]one-head 1/100:   1%|▏                    | 11/938 [00:07<07:08,  2.16it/s, total=117.908, local=73.106, gaux=28.444, align=8.403, roi+=0.82, GTcrop=0.60]one-head 1/100:   1%|▎                    | 12/938 [00:07<07:08,  2.16it/s, total=117.908, local=73.106, gaux=28.444, align=8.403, roi+=0.82, GTcrop=0.60]one-head 1/100:   1%|▎                    | 13/938 [00:08<06:51,  2.25it/s, total=117.908, local=73.106, gaux=28.444, align=8.403, roi+=0.82, GTcrop=0.60]one-head 1/100:   1%|▎                    | 13/938 [00:08<06:51,  2.25it/s, total=111.511, local=67.973, gaux=27.266, align=8.338, roi+=0.84, GTcrop=0.62]one-head 1/100:   1%|▎                    | 14/938 [00:08<06:54,  2.23it/s, total=111.511, local=67.973, gaux=27.266, align=8.338, roi+=0.84, GTcrop=0.62]one-head 1/100:   1%|▎                    | 14/938 [00:09<06:54,  2.23it/s, total=108.596, local=65.745, gaux=26.519, align=8.409, roi+=0.84, GTcrop=0.65]one-head 1/100:   2%|▎                    | 15/938 [00:09<06:34,  2.34it/s, total=108.596, local=65.745, gaux=26.519, align=8.409, roi+=0.84, GTcrop=0.65]one-head 1/100:   2%|▎                    | 15/938 [00:09<06:34,  2.34it/s, total=105.343, local=63.198, gaux=25.640, align=8.593, roi+=0.84, GTcrop=0.66]one-head 1/100:   2%|▎                    | 16/938 [00:09<06:54,  2.23it/s, total=105.343, local=63.198, gaux=25.640, align=8.593, roi+=0.84, GTcrop=0.66]one-head 1/100:   2%|▍                    | 17/938 [00:09<06:33,  2.34it/s, total=105.343, local=63.198, gaux=25.640, align=8.593, roi+=0.84, GTcrop=0.66]one-head 1/100:   2%|▍                     | 17/938 [00:10<06:33,  2.34it/s, total=99.968, local=59.239, gaux=24.331, align=8.475, roi+=0.85, GTcrop=0.67]one-head 1/100:   2%|▍                     | 18/938 [00:10<06:37,  2.31it/s, total=99.968, local=59.239, gaux=24.331, align=8.475, roi+=0.85, GTcrop=0.67]one-head 1/100:   2%|▍                     | 19/938 [00:10<06:21,  2.41it/s, total=99.968, local=59.239, gaux=24.331, align=8.475, roi+=0.85, GTcrop=0.67]one-head 1/100:   2%|▍                     | 19/938 [00:11<06:21,  2.41it/s, total=95.783, local=56.024, gaux=23.287, align=8.605, roi+=0.85, GTcrop=0.68]one-head 1/100:   2%|▍                     | 20/938 [00:11<06:27,  2.37it/s, total=95.783, local=56.024, gaux=23.287, align=8.605, roi+=0.85, GTcrop=0.68]one-head 1/100:   2%|▍                     | 21/938 [00:11<06:12,  2.46it/s, total=95.783, local=56.024, gaux=23.287, align=8.605, roi+=0.85, GTcrop=0.68][AMP BACKOFF] step=22 scale=32->16 consecutive=1 bad_parameters=893 first=['global_encoder.model.0.conv.weight', 'global_encoder.model.0.bn.weight', 'global_encoder.model.0.bn.bias', 'global_encoder.model.1.conv.weight', 'global_encoder.model.1.bn.weight']
-one-head 1/100:   2%|▍                     | 21/938 [00:12<06:12,  2.46it/s, total=92.358, local=53.489, gaux=22.370, align=8.610, roi+=0.84, GTcrop=0.68]one-head 1/100:   2%|▌                     | 22/938 [00:12<06:47,  2.25it/s, total=92.358, local=53.489, gaux=22.370, align=8.610, roi+=0.84, GTcrop=0.68]one-head 1/100:   2%|▌                     | 23/938 [00:12<06:35,  2.31it/s, total=92.358, local=53.489, gaux=22.370, align=8.610, roi+=0.84, GTcrop=0.68]one-head 1/100:   2%|▌                     | 23/938 [00:12<06:35,  2.31it/s, total=89.110, local=51.168, gaux=21.507, align=8.563, roi+=0.84, GTcrop=0.70]one-head 1/100:   3%|▌                     | 24/938 [00:12<06:33,  2.32it/s, total=89.110, local=51.168, gaux=21.507, align=8.563, roi+=0.84, GTcrop=0.70]one-head 1/100:   3%|▌                     | 25/938 [00:13<06:18,  2.42it/s, total=89.110, local=51.168, gaux=21.507, align=8.563, roi+=0.84, GTcrop=0.70][AMP BACKOFF] step=26 scale=16->8 consecutive=1 bad_parameters=893 first=['global_encoder.model.0.conv.weight', 'global_encoder.model.0.bn.weight', 'global_encoder.model.0.bn.bias', 'global_encoder.model.1.conv.weight', 'global_encoder.model.1.bn.weight']
-one-head 1/100:   3%|▌                     | 25/938 [00:13<06:18,  2.42it/s, total=86.177, local=49.272, gaux=20.762, align=8.290, roi+=0.83, GTcrop=0.69]one-head 1/100:   3%|▌                     | 26/938 [00:13<06:54,  2.20it/s, total=86.177, local=49.272, gaux=20.762, align=8.290, roi+=0.83, GTcrop=0.69]one-head 1/100:   3%|▋                     | 27/938 [00:14<06:35,  2.30it/s, total=86.177, local=49.272, gaux=20.762, align=8.290, roi+=0.83, GTcrop=0.69]one-head 1/100:   3%|▋                     | 27/938 [00:14<06:35,  2.30it/s, total=83.718, local=47.491, gaux=20.144, align=8.231, roi+=0.84, GTcrop=0.70]one-head 1/100:   3%|▋                     | 28/938 [00:14<06:31,  2.32it/s, total=83.718, local=47.491, gaux=20.144, align=8.231, roi+=0.84, GTcrop=0.70]one-head 1/100:   3%|▋                     | 29/938 [00:15<06:16,  2.42it/s, total=83.718, local=47.491, gaux=20.144, align=8.231, roi+=0.84, GTcrop=0.70]one-head 1/100:   3%|▋                     | 29/938 [00:15<06:16,  2.42it/s, total=81.132, local=45.740, gaux=19.470, align=8.103, roi+=0.85, GTcrop=0.72]one-head 1/100:   3%|▋                     | 30/938 [00:15<06:24,  2.36it/s, total=81.132, local=45.740, gaux=19.470, align=8.103, roi+=0.85, GTcrop=0.72]one-head 1/100:   3%|▋                     | 31/938 [00:15<06:10,  2.45it/s, total=81.132, local=45.740, gaux=19.470, align=8.103, roi+=0.85, GTcrop=0.72][AMP BACKOFF] step=32 scale=8->4 consecutive=1 bad_parameters=893 first=['global_encoder.model.0.conv.weight', 'global_encoder.model.0.bn.weight', 'global_encoder.model.0.bn.bias', 'global_encoder.model.1.conv.weight', 'global_encoder.model.1.bn.weight']
-one-head 1/100:   3%|▋                     | 31/938 [00:16<06:10,  2.45it/s, total=79.237, local=44.244, gaux=18.786, align=8.325, roi+=0.83, GTcrop=0.71]one-head 1/100:   3%|▊                     | 32/938 [00:16<06:38,  2.27it/s, total=79.237, local=44.244, gaux=18.786, align=8.325, roi+=0.83, GTcrop=0.71]one-head 1/100:   4%|▊                     | 33/938 [00:16<06:21,  2.37it/s, total=79.237, local=44.244, gaux=18.786, align=8.325, roi+=0.83, GTcrop=0.71][AMP BACKOFF] step=34 scale=4->2 consecutive=2 bad_parameters=893 first=['global_encoder.model.0.conv.weight', 'global_encoder.model.0.bn.weight', 'global_encoder.model.0.bn.bias', 'global_encoder.model.1.conv.weight', 'global_encoder.model.1.bn.weight']
-one-head 1/100:   4%|▊                     | 33/938 [00:17<06:21,  2.37it/s, total=77.804, local=43.111, gaux=18.396, align=8.402, roi+=0.83, GTcrop=0.71]one-head 1/100:   4%|▊                     | 34/938 [00:17<06:48,  2.21it/s, total=77.804, local=43.111, gaux=18.396, align=8.402, roi+=0.83, GTcrop=0.71]one-head 1/100:   4%|▊                     | 35/938 [00:17<06:29,  2.32it/s, total=77.804, local=43.111, gaux=18.396, align=8.402, roi+=0.83, GTcrop=0.71]one-head 1/100:   4%|▊                     | 35/938 [00:18<06:29,  2.32it/s, total=76.287, local=41.952, gaux=17.894, align=8.529, roi+=0.83, GTcrop=0.72]one-head 1/100:   4%|▊                     | 36/938 [00:18<06:30,  2.31it/s, total=76.287, local=41.952, gaux=17.894, align=8.529, roi+=0.83, GTcrop=0.72]one-head 1/100:   4%|▊                     | 37/938 [00:18<06:13,  2.41it/s, total=76.287, local=41.952, gaux=17.894, align=8.529, roi+=0.83, GTcrop=0.72]one-head 1/100:   4%|▊                     | 37/938 [00:18<06:13,  2.41it/s, total=74.625, local=40.800, gaux=17.439, align=8.514, roi+=0.83, GTcrop=0.73]one-head 1/100:   4%|▉                     | 38/938 [00:18<06:20,  2.37it/s, total=74.625, local=40.800, gaux=17.439, align=8.514, roi+=0.83, GTcrop=0.73]one-head 1/100:   4%|▉                     | 39/938 [00:19<06:06,  2.45it/s, total=74.625, local=40.800, gaux=17.439, align=8.514, roi+=0.83, GTcrop=0.73]one-head 1/100:   4%|▉                     | 39/938 [00:19<06:06,  2.45it/s, total=73.188, local=39.697, gaux=16.986, align=8.648, roi+=0.83, GTcrop=0.74]one-head 1/100:   4%|▉                     | 40/938 [00:19<06:13,  2.40it/s, total=73.188, local=39.697, gaux=16.986, align=8.648, roi+=0.83, GTcrop=0.74]one-head 1/100:   4%|▉                     | 41/938 [00:20<06:00,  2.49it/s, total=73.188, local=39.697, gaux=16.986, align=8.648, roi+=0.83, GTcrop=0.74][AMP BACKOFF] step=42 scale=2->1 consecutive=1 bad_parameters=893 first=['global_encoder.model.0.conv.weight', 'global_encoder.model.0.bn.weight', 'global_encoder.model.0.bn.bias', 'global_encoder.model.1.conv.weight', 'global_encoder.model.1.bn.weight']
-one-head 1/100:   4%|▉                     | 41/938 [00:20<06:00,  2.49it/s, total=71.663, local=38.649, gaux=16.647, align=8.485, roi+=0.83, GTcrop=0.73]one-head 1/100:   4%|▉                     | 42/938 [00:20<06:36,  2.26it/s, total=71.663, local=38.649, gaux=16.647, align=8.485, roi+=0.83, GTcrop=0.73]one-head 1/100:   5%|█                     | 43/938 [00:21<06:18,  2.37it/s, total=71.663, local=38.649, gaux=16.647, align=8.485, roi+=0.83, GTcrop=0.73][NAN GUARD] rank=0 epoch=1 step=44 reason=gradient, report=runs/gmls_v2_roi_hybrid/yolo26m_AntiUAV_GMLSv2_SingleHead_GlobalAux_Top2_OfficialPT_100e_seed0/nan_diagnostics/epoch001_step00044_rank0_gradient.json
-[NAN GUARD] loss components: {'total': {'mean': 51.275962829589844, 'all_finite': True}, 'local_det': {'mean': 19.530132293701172, 'all_finite': True}, 'global_aux_det': {'mean': 21.921649932861328, 'all_finite': True}, 'global_aux_weighted': {'mean': 10.960824966430664, 'all_finite': True}, 'align_weighted': {'mean': 9.659625053405762, 'all_finite': True}, 'roi_guide': {'mean': 12.411334037780762, 'all_finite': True}, 'roi_center': {'mean': 0.14953923225402832, 'all_finite': True}, 'roi_positive': 0.375, 'roi_tir_valid': {'mean': 1.0, 'all_finite': True}, 'roi_count': 2.0, 'gt_assist': {'mean': 0.5, 'all_finite': True}, 'local_box_loss': {'mean': 2.268531084060669, 'all_finite': True}, 'local_cls_loss': {'mean': 5.593569755554199, 'all_finite': True}, 'local_l1_loss': {'mean': 0.017541304230690002, 'all_finite': True}, 'local_box': {'mean': 2.268531084060669, 'all_finite': True}, 'local_cls': {'mean': 5.593569755554199, 'all_finite': True}, 'global_aux_box_loss': {'mean': 2.0339486598968506, 'all_finite': True}, 'global_aux_cls_loss': {'mean': 5.11157751083374, 'all_finite': True}, 'global_aux_l1_loss': {'mean': 0.005278695374727249, 'all_finite': True}, 'global_aux_box': {'mean': 2.0339486598968506, 'all_finite': True}, 'global_aux_cls': {'mean': 5.11157751083374, 'all_finite': True}, 'align_anchor': {'mean': 6.482168197631836, 'all_finite': True}, 'align_coarse': {'mean': 5.285780906677246, 'all_finite': True}, 'align_scale': {'mean': 0.060770433396101, 'all_finite': True}, 'align_targetness': {'mean': 0.042907677590847015, 'all_finite': True}, 'align_v2_quality': {'mean': 0.6928302645683289, 'all_finite': True}, 'align_v2_route': {'mean': 0.6402353048324585, 'all_finite': True}, 'align_gmls_gt_quality': {'mean': 0.01811625435948372, 'all_finite': True}, 'align_dmls_gt_quality': {'mean': 1.0246690180792939e-06, 'all_finite': True}}
-[NAN GUARD] RGB paths: ['/mnt/sda/taochangyong/Projects/datasets/Anti-UAV/RGB/images/train/20190926_193515_1_5_000000.jpg', '/mnt/sda/taochangyong/Projects/datasets/Anti-UAV/RGB/images/train/20190925_183946_1_6_000420.jpg', '/mnt/sda/taochangyong/Projects/datasets/Anti-UAV/RGB/images/train/20190925_200320_1_5_000380.jpg', '/mnt/sda/taochangyong/Projects/datasets/Anti-UAV/RGB/images/train/20190925_143900_1_3_000180.jpg']
-[NAN GUARD] persistent nonfinite gradient step=44 failed_windows=1 amp_scale=1
-one-head 1/100:   5%|█                     | 43/938 [00:21<06:18,  2.37it/s, total=70.672, local=37.777, gaux=16.326, align=8.523, roi+=0.81, GTcrop=0.72]one-head 1/100:   5%|█                     | 44/938 [00:21<06:51,  2.17it/s, total=70.672, local=37.777, gaux=16.326, align=8.523, roi+=0.81, GTcrop=0.72][NAN GUARD] rank=1 epoch=1 step=44 reason=gradient, report=runs/gmls_v2_roi_hybrid/yolo26m_AntiUAV_GMLSv2_SingleHead_GlobalAux_Top2_OfficialPT_100e_seed0/nan_diagnostics/epoch001_step00044_rank1_gradient.json
-[NAN GUARD] loss components: {'total': {'mean': 35.98308181762695, 'all_finite': True}, 'local_det': {'mean': 16.289091110229492, 'all_finite': True}, 'global_aux_det': {'mean': 14.895456314086914, 'all_finite': True}, 'global_aux_weighted': {'mean': 7.447728157043457, 'all_finite': True}, 'align_weighted': {'mean': 5.200568675994873, 'all_finite': True}, 'roi_guide': {'mean': 8.11264705657959, 'all_finite': True}, 'roi_center': {'mean': 0.06944717466831207, 'all_finite': True}, 'roi_positive': 1.0, 'roi_tir_valid': {'mean': 1.0, 'all_finite': True}, 'roi_count': 2.0, 'gt_assist': {'mean': 1.0, 'all_finite': True}, 'local_box_loss': {'mean': 1.4286261796951294, 'all_finite': True}, 'local_cls_loss': {'mean': 3.8655850887298584, 'all_finite': True}, 'local_l1_loss': {'mean': 0.015654651448130608, 'all_finite': True}, 'local_box': {'mean': 1.4286261796951294, 'all_finite': True}, 'local_cls': {'mean': 3.8655850887298584, 'all_finite': True}, 'global_aux_box_loss': {'mean': 1.2224862575531006, 'all_finite': True}, 'global_aux_cls_loss': {'mean': 5.105487823486328, 'all_finite': True}, 'global_aux_l1_loss': {'mean': 0.0038519706577062607, 'all_finite': True}, 'global_aux_box': {'mean': 1.2224862575531006, 'all_finite': True}, 'global_aux_cls': {'mean': 5.105487823486328, 'all_finite': True}, 'align_anchor': {'mean': 2.9228506088256836, 'all_finite': True}, 'align_coarse': {'mean': 3.313140869140625, 'all_finite': True}, 'align_scale': {'mean': 0.02055349014699459, 'all_finite': True}, 'align_targetness': {'mean': 0.043052881956100464, 'all_finite': True}, 'align_v2_quality': {'mean': 0.6929084062576294, 'all_finite': True}, 'align_v2_route': {'mean': 0.6232765316963196, 'all_finite': True}, 'align_gmls_gt_quality': {'mean': 0.2216806560754776, 'all_finite': True}, 'align_dmls_gt_quality': {'mean': 0.038038305938243866, 'all_finite': True}}
-[NAN GUARD] RGB paths: ['/mnt/sda/taochangyong/Projects/datasets/Anti-UAV/RGB/images/train/20190926_130341_1_3_000820.jpg', '/mnt/sda/taochangyong/Projects/datasets/Anti-UAV/RGB/images/train/20190925_131530_1_1_000360.jpg', '/mnt/sda/taochangyong/Projects/datasets/Anti-UAV/RGB/images/train/20190926_130341_1_1_000640.jpg', '/mnt/sda/taochangyong/Projects/datasets/Anti-UAV/RGB/images/train/20190925_200320_1_6_000380.jpg']
-one-head 1/100:   5%|█                     | 44/938 [00:21<06:51,  2.17it/s, total=69.854, local=37.246, gaux=16.123, align=8.443, roi+=0.82, GTcrop=0.73]one-head 1/100:   5%|█                     | 45/938 [00:21<06:29,  2.29it/s, total=69.854, local=37.246, gaux=16.123, align=8.443, roi+=0.82, GTcrop=0.73][NAN GUARD] rank=0 epoch=1 step=46 reason=gradient, report=runs/gmls_v2_roi_hybrid/yolo26m_AntiUAV_GMLSv2_SingleHead_GlobalAux_Top2_OfficialPT_100e_seed0/nan_diagnostics/epoch001_step00046_rank0_gradient.json
-[NAN GUARD] loss components: {'total': {'mean': 47.23307418823242, 'all_finite': True}, 'local_det': {'mean': 16.542762756347656, 'all_finite': True}, 'global_aux_det': {'mean': 16.42569351196289, 'all_finite': True}, 'global_aux_weighted': {'mean': 8.212846755981445, 'all_finite': True}, 'align_weighted': {'mean': 10.728621482849121, 'all_finite': True}, 'roi_guide': {'mean': 13.24019718170166, 'all_finite': True}, 'roi_center': {'mean': 0.14458538591861725, 'all_finite': True}, 'roi_positive': 0.625, 'roi_tir_valid': {'mean': 1.0, 'all_finite': True}, 'roi_count': 2.0, 'gt_assist': {'mean': 0.75, 'all_finite': True}, 'local_box_loss': {'mean': 1.7401012182235718, 'all_finite': True}, 'local_cls_loss': {'mean': 4.128884792327881, 'all_finite': True}, 'local_l1_loss': {'mean': 0.014435317367315292, 'all_finite': True}, 'local_box': {'mean': 1.7401012182235718, 'all_finite': True}, 'local_cls': {'mean': 4.128884792327881, 'all_finite': True}, 'global_aux_box_loss': {'mean': 1.827325701713562, 'all_finite': True}, 'global_aux_cls_loss': {'mean': 4.947244644165039, 'all_finite': True}, 'global_aux_l1_loss': {'mean': 0.004036202095448971, 'all_finite': True}, 'global_aux_box': {'mean': 1.827325701713562, 'all_finite': True}, 'global_aux_cls': {'mean': 4.947244644165039, 'all_finite': True}, 'align_anchor': {'mean': 6.396451473236084, 'all_finite': True}, 'align_coarse': {'mean': 6.719117641448975, 'all_finite': True}, 'align_scale': {'mean': 0.04915081709623337, 'all_finite': True}, 'align_targetness': {'mean': 0.042924344539642334, 'all_finite': True}, 'align_v2_quality': {'mean': 0.6928256750106812, 'all_finite': True}, 'align_v2_route': {'mean': 0.6426522731781006, 'all_finite': True}, 'align_gmls_gt_quality': {'mean': 0.014999035745859146, 'all_finite': True}, 'align_dmls_gt_quality': {'mean': 2.3931570267143876e-11, 'all_finite': True}}
-[NAN GUARD] RGB paths: ['/mnt/sda/taochangyong/Projects/datasets/Anti-UAV/RGB/images/train/20190925_200320_1_3_000620.jpg', '/mnt/sda/taochangyong/Projects/datasets/Anti-UAV/RGB/images/train/20190926_183400_1_2_000560.jpg', '/mnt/sda/taochangyong/Projects/datasets/Anti-UAV/RGB/images/train/20190925_133630_1_8_000920.jpg', '/mnt/sda/taochangyong/Projects/datasets/Anti-UAV/RGB/images/train/20190926_103046_1_5_000400.jpg']
-[NAN GUARD] persistent nonfinite gradient step=46 failed_windows=2 amp_scale=0.5
-one-head 1/100:   5%|█                     | 45/938 [00:22<06:29,  2.29it/s, total=69.363, local=36.796, gaux=15.951, align=8.493, roi+=0.81, GTcrop=0.73]one-head 1/100:   5%|█                     | 46/938 [00:22<06:56,  2.14it/s, total=69.363, local=36.796, gaux=15.951, align=8.493, roi+=0.81, GTcrop=0.73][NAN GUARD] rank=1 epoch=1 step=46 reason=gradient, report=runs/gmls_v2_roi_hybrid/yolo26m_AntiUAV_GMLSv2_SingleHead_GlobalAux_Top2_OfficialPT_100e_seed0/nan_diagnostics/epoch001_step00046_rank1_gradient.json
-[NAN GUARD] loss components: {'total': {'mean': 48.654808044433594, 'all_finite': True}, 'local_det': {'mean': 21.185020446777344, 'all_finite': True}, 'global_aux_det': {'mean': 19.151554107666016, 'all_finite': True}, 'global_aux_weighted': {'mean': 9.575777053833008, 'all_finite': True}, 'align_weighted': {'mean': 8.554656028747559, 'all_finite': True}, 'roi_guide': {'mean': 10.596729278564453, 'all_finite': True}, 'roi_center': {'mean': 0.10774640738964081, 'all_finite': True}, 'roi_positive': 0.875, 'roi_tir_valid': {'mean': 1.0, 'all_finite': True}, 'roi_count': 2.0, 'gt_assist': {'mean': 0.75, 'all_finite': True}, 'local_box_loss': {'mean': 1.7614213228225708, 'all_finite': True}, 'local_cls_loss': {'mean': 4.574855327606201, 'all_finite': True}, 'local_l1_loss': {'mean': 0.013205964118242264, 'all_finite': True}, 'local_box': {'mean': 1.7614213228225708, 'all_finite': True}, 'local_cls': {'mean': 4.574855327606201, 'all_finite': True}, 'global_aux_box_loss': {'mean': 2.019516944885254, 'all_finite': True}, 'global_aux_cls_loss': {'mean': 5.292642116546631, 'all_finite': True}, 'global_aux_l1_loss': {'mean': 0.005854401737451553, 'all_finite': True}, 'global_aux_box': {'mean': 2.019516944885254, 'all_finite': True}, 'global_aux_cls': {'mean': 5.292642116546631, 'all_finite': True}, 'align_anchor': {'mean': 4.444723129272461, 'all_finite': True}, 'align_coarse': {'mean': 5.8401336669921875, 'all_finite': True}, 'align_scale': {'mean': 0.16193407773971558, 'all_finite': True}, 'align_targetness': {'mean': 0.04298620671033859, 'all_finite': True}, 'align_v2_quality': {'mean': 0.6928259134292603, 'all_finite': True}, 'align_v2_route': {'mean': 0.6472562551498413, 'all_finite': True}, 'align_gmls_gt_quality': {'mean': 0.006670402828603983, 'all_finite': True}, 'align_dmls_gt_quality': {'mean': 8.33847025205614e-07, 'all_finite': True}}
-[NAN GUARD] RGB paths: ['/mnt/sda/taochangyong/Projects/datasets/Anti-UAV/RGB/images/train/20190925_133630_1_7_000740.jpg', '/mnt/sda/taochangyong/Projects/datasets/Anti-UAV/RGB/images/train/20190925_205804_1_4_000320.jpg', '/mnt/sda/taochangyong/Projects/datasets/Anti-UAV/RGB/images/train/20190925_205804_1_1_000620.jpg', '/mnt/sda/taochangyong/Projects/datasets/Anti-UAV/RGB/images/train/20190926_183400_1_5_000000.jpg']
-one-head 1/100:   5%|█                     | 47/938 [00:22<06:31,  2.28it/s, total=69.363, local=36.796, gaux=15.951, align=8.493, roi+=0.81, GTcrop=0.73][NAN GUARD] rank=0 epoch=1 step=48 reason=gradient, report=runs/gmls_v2_roi_hybrid/yolo26m_AntiUAV_GMLSv2_SingleHead_GlobalAux_Top2_OfficialPT_100e_seed0/nan_diagnostics/epoch001_step00048_rank0_gradient.json
-[NAN GUARD] loss components: {'total': {'mean': 43.7922248840332, 'all_finite': True}, 'local_det': {'mean': 20.561614990234375, 'all_finite': True}, 'global_aux_det': {'mean': 17.19839859008789, 'all_finite': True}, 'global_aux_weighted': {'mean': 8.599199295043945, 'all_finite': True}, 'align_weighted': {'mean': 6.477303504943848, 'all_finite': True}, 'roi_guide': {'mean': 9.339118957519531, 'all_finite': True}, 'roi_center': {'mean': 0.0853513702750206, 'all_finite': True}, 'roi_positive': 0.75, 'roi_tir_valid': {'mean': 1.0, 'all_finite': True}, 'roi_count': 2.0, 'gt_assist': {'mean': 0.5, 'all_finite': True}, 'local_box_loss': {'mean': 1.7789392471313477, 'all_finite': True}, 'local_cls_loss': {'mean': 5.2803239822387695, 'all_finite': True}, 'local_l1_loss': {'mean': 0.012090758420526981, 'all_finite': True}, 'local_box': {'mean': 1.7789392471313477, 'all_finite': True}, 'local_cls': {'mean': 5.2803239822387695, 'all_finite': True}, 'global_aux_box_loss': {'mean': 1.7238578796386719, 'all_finite': True}, 'global_aux_cls_loss': {'mean': 5.6635847091674805, 'all_finite': True}, 'global_aux_l1_loss': {'mean': 0.0033588199876248837, 'all_finite': True}, 'global_aux_box': {'mean': 1.7238578796386719, 'all_finite': True}, 'global_aux_cls': {'mean': 5.6635847091674805, 'all_finite': True}, 'align_anchor': {'mean': 3.060792922973633, 'all_finite': True}, 'align_coarse': {'mean': 4.653790473937988, 'all_finite': True}, 'align_scale': {'mean': 0.13556954264640808, 'all_finite': True}, 'align_targetness': {'mean': 0.04291730374097824, 'all_finite': True}, 'align_v2_quality': {'mean': 0.6928266882896423, 'all_finite': True}, 'align_v2_route': {'mean': 0.6468584537506104, 'all_finite': True}, 'align_gmls_gt_quality': {'mean': 0.006831705570220947, 'all_finite': True}, 'align_dmls_gt_quality': {'mean': 8.331466233357787e-06, 'all_finite': True}}
-[NAN GUARD] RGB paths: ['/mnt/sda/taochangyong/Projects/datasets/Anti-UAV/RGB/images/train/20190926_193515_1_5_000300.jpg', '/mnt/sda/taochangyong/Projects/datasets/Anti-UAV/RGB/images/train/20190926_183400_1_8_000540.jpg', '/mnt/sda/taochangyong/Projects/datasets/Anti-UAV/RGB/images/train/20190926_195921_1_3_000500.jpg', '/mnt/sda/taochangyong/Projects/datasets/Anti-UAV/RGB/images/train/20190926_103046_1_1_000560.jpg']
-[NAN GUARD] persistent nonfinite gradient step=48 failed_windows=3 amp_scale=0.25
-one-head 1/100:   5%|█                     | 47/938 [00:23<06:31,  2.28it/s, total=68.175, local=36.004, gaux=15.621, align=8.431, roi+=0.81, GTcrop=0.72]one-head 1/100:   5%|█▏                    | 48/938 [00:23<07:00,  2.12it/s, total=68.175, local=36.004, gaux=15.621, align=8.431, roi+=0.81, GTcrop=0.72][NAN GUARD] rank=1 epoch=1 step=48 reason=gradient, report=runs/gmls_v2_roi_hybrid/yolo26m_AntiUAV_GMLSv2_SingleHead_GlobalAux_Top2_OfficialPT_100e_seed0/nan_diagnostics/epoch001_step00048_rank1_gradient.json
-[NAN GUARD] loss components: {'total': {'mean': 48.70829772949219, 'all_finite': True}, 'local_det': {'mean': 17.119338989257812, 'all_finite': True}, 'global_aux_det': {'mean': 20.587013244628906, 'all_finite': True}, 'global_aux_weighted': {'mean': 10.293506622314453, 'all_finite': True}, 'align_weighted': {'mean': 10.13138484954834, 'all_finite': True}, 'roi_guide': {'mean': 12.494702339172363, 'all_finite': True}, 'roi_center': {'mean': 0.1460379660129547, 'all_finite': True}, 'roi_positive': 0.5, 'roi_tir_valid': {'mean': 1.0, 'all_finite': True}, 'roi_count': 2.0, 'gt_assist': {'mean': 0.75, 'all_finite': True}, 'local_box_loss': {'mean': 1.1904633045196533, 'all_finite': True}, 'local_cls_loss': {'mean': 4.217928409576416, 'all_finite': True}, 'local_l1_loss': {'mean': 0.008750207722187042, 'all_finite': True}, 'local_box': {'mean': 1.1904633045196533, 'all_finite': True}, 'local_cls': {'mean': 4.217928409576416, 'all_finite': True}, 'global_aux_box_loss': {'mean': 2.186819076538086, 'all_finite': True}, 'global_aux_cls_loss': {'mean': 4.8710503578186035, 'all_finite': True}, 'global_aux_l1_loss': {'mean': 0.006878152024000883, 'all_finite': True}, 'global_aux_box': {'mean': 2.186819076538086, 'all_finite': True}, 'global_aux_cls': {'mean': 4.8710503578186035, 'all_finite': True}, 'align_anchor': {'mean': 6.24208402633667, 'all_finite': True}, 'align_coarse': {'mean': 5.991482734680176, 'all_finite': True}, 'align_scale': {'mean': 0.18378034234046936, 'all_finite': True}, 'align_targetness': {'mean': 0.042963217943906784, 'all_finite': True}, 'align_v2_quality': {'mean': 0.692823052406311, 'all_finite': True}, 'align_v2_route': {'mean': 0.6508592367172241, 'all_finite': True}, 'align_gmls_gt_quality': {'mean': 0.0014076018705964088, 'all_finite': True}, 'align_dmls_gt_quality': {'mean': 3.867489431286231e-05, 'all_finite': True}}
-[NAN GUARD] RGB paths: ['/mnt/sda/taochangyong/Projects/datasets/Anti-UAV/RGB/images/train/20190926_142435_1_2_000720.jpg', '/mnt/sda/taochangyong/Projects/datasets/Anti-UAV/RGB/images/train/20190925_194211_1_5_000540.jpg', '/mnt/sda/taochangyong/Projects/datasets/Anti-UAV/RGB/images/train/20190925_210802_1_4_000180.jpg', '/mnt/sda/taochangyong/Projects/datasets/Anti-UAV/RGB/images/train/20190926_193515_1_5_000100.jpg']
-one-head 1/100:   5%|█▏                    | 49/938 [00:23<06:34,  2.25it/s, total=68.175, local=36.004, gaux=15.621, align=8.431, roi+=0.81, GTcrop=0.72]one-head 1/100:   5%|█▏                    | 49/938 [00:24<06:34,  2.25it/s, total=67.313, local=35.276, gaux=15.409, align=8.420, roi+=0.82, GTcrop=0.72]one-head 1/100:   5%|█▏                    | 50/938 [00:24<06:34,  2.25it/s, total=67.313, local=35.276, gaux=15.409, align=8.420, roi+=0.82, GTcrop=0.72]one-head 1/100:   5%|█▏                    | 51/938 [00:24<06:15,  2.36it/s, total=67.313, local=35.276, gaux=15.409, align=8.420, roi+=0.82, GTcrop=0.72][NAN GUARD] rank=0 epoch=1 step=52 reason=gradient, report=runs/gmls_v2_roi_hybrid/yolo26m_AntiUAV_GMLSv2_SingleHead_GlobalAux_Top2_OfficialPT_100e_seed0/nan_diagnostics/epoch001_step00052_rank0_gradient.json
-[NAN GUARD] loss components: {'total': {'mean': 42.15555191040039, 'all_finite': True}, 'local_det': {'mean': 17.13408660888672, 'all_finite': True}, 'global_aux_det': {'mean': 13.819320678710938, 'all_finite': True}, 'global_aux_weighted': {'mean': 6.909660339355469, 'all_finite': True}, 'align_weighted': {'mean': 6.700202465057373, 'all_finite': True}, 'roi_guide': {'mean': 13.101154327392578, 'all_finite': True}, 'roi_center': {'mean': 0.11633497476577759, 'all_finite': True}, 'roi_positive': 0.875, 'roi_tir_valid': {'mean': 1.0, 'all_finite': True}, 'roi_count': 2.0, 'gt_assist': {'mean': 1.0, 'all_finite': True}, 'local_box_loss': {'mean': 1.6775397062301636, 'all_finite': True}, 'local_cls_loss': {'mean': 4.132888317108154, 'all_finite': True}, 'local_l1_loss': {'mean': 0.011853689327836037, 'all_finite': True}, 'local_box': {'mean': 1.6775397062301636, 'all_finite': True}, 'local_cls': {'mean': 4.132888317108154, 'all_finite': True}, 'global_aux_box_loss': {'mean': 1.4251606464385986, 'all_finite': True}, 'global_aux_cls_loss': {'mean': 5.114841938018799, 'all_finite': True}, 'global_aux_l1_loss': {'mean': 0.002860111417248845, 'all_finite': True}, 'global_aux_box': {'mean': 1.4251606464385986, 'all_finite': True}, 'global_aux_cls': {'mean': 5.114841938018799, 'all_finite': True}, 'align_anchor': {'mean': 4.321629047393799, 'all_finite': True}, 'align_coarse': {'mean': 3.682971954345703, 'all_finite': True}, 'align_scale': {'mean': 0.12555302679538727, 'all_finite': True}, 'align_targetness': {'mean': 0.0429036021232605, 'all_finite': True}, 'align_v2_quality': {'mean': 0.6928181648254395, 'all_finite': True}, 'align_v2_route': {'mean': 0.6331313252449036, 'all_finite': True}, 'align_gmls_gt_quality': {'mean': 0.115228071808815, 'all_finite': True}, 'align_dmls_gt_quality': {'mean': 0.00011248597729718313, 'all_finite': True}}
-[NAN GUARD] RGB paths: ['/mnt/sda/taochangyong/Projects/datasets/Anti-UAV/RGB/images/train/20190926_143632_1_3_000480.jpg', '/mnt/sda/taochangyong/Projects/datasets/Anti-UAV/RGB/images/train/20190925_101846_1_7_000420.jpg', '/mnt/sda/taochangyong/Projects/datasets/Anti-UAV/RGB/images/train/20190926_103046_1_6_000340.jpg', '/mnt/sda/taochangyong/Projects/datasets/Anti-UAV/RGB/images/train/20190926_133516_1_4_000840.jpg']
-[NAN GUARD] persistent nonfinite gradient step=52 failed_windows=4 amp_scale=0.125
-one-head 1/100:   5%|█▏                    | 51/938 [00:25<07:17,  2.03it/s, total=67.313, local=35.276, gaux=15.409, align=8.420, roi+=0.82, GTcrop=0.72]
-[rank0]: Traceback (most recent call last):
-[rank0]:   File "/mnt/sda/taochangyong/Projects/Model/YOLO-tcy_v5/train_gmls_v2_roi_hybrid.py", line 16, in <module>
-[rank0]:     run_train(args)
-[rank0]:   File "/mnt/sda/taochangyong/Projects/Model/YOLO-tcy_v5/gmls_roi_onehead_v2/runner.py", line 398, in run_train
-[rank0]:     raise FloatingPointError(
-[rank0]: FloatingPointError: [NAN GUARD] exceeded 3 bad windows in epoch 1. Inspect runs/gmls_v2_roi_hybrid/yolo26m_AntiUAV_GMLSv2_SingleHead_GlobalAux_Top2_OfficialPT_100e_seed0/nan_diagnostics; do not silently train through persistent NaNs.
-[NAN GUARD] rank=1 epoch=1 step=52 reason=gradient, report=runs/gmls_v2_roi_hybrid/yolo26m_AntiUAV_GMLSv2_SingleHead_GlobalAux_Top2_OfficialPT_100e_seed0/nan_diagnostics/epoch001_step00052_rank1_gradient.json
-[NAN GUARD] loss components: {'total': {'mean': 47.94327163696289, 'all_finite': True}, 'local_det': {'mean': 17.502492904663086, 'all_finite': True}, 'global_aux_det': {'mean': 16.881261825561523, 'all_finite': True}, 'global_aux_weighted': {'mean': 8.440630912780762, 'all_finite': True}, 'align_weighted': {'mean': 9.527373313903809, 'all_finite': True}, 'roi_guide': {'mean': 14.258365631103516, 'all_finite': True}, 'roi_center': {'mean': 0.13326025009155273, 'all_finite': True}, 'roi_positive': 0.75, 'roi_tir_valid': {'mean': 1.0, 'all_finite': True}, 'roi_count': 2.0, 'gt_assist': {'mean': 0.5, 'all_finite': True}, 'local_box_loss': {'mean': 2.248013973236084, 'all_finite': True}, 'local_cls_loss': {'mean': 4.241215229034424, 'all_finite': True}, 'local_l1_loss': {'mean': 0.01799529790878296, 'all_finite': True}, 'local_box': {'mean': 2.248013973236084, 'all_finite': True}, 'local_cls': {'mean': 4.241215229034424, 'all_finite': True}, 'global_aux_box_loss': {'mean': 1.540064811706543, 'all_finite': True}, 'global_aux_cls_loss': {'mean': 4.620487213134766, 'all_finite': True}, 'global_aux_l1_loss': {'mean': 0.004197116941213608, 'all_finite': True}, 'global_aux_box': {'mean': 1.540064811706543, 'all_finite': True}, 'global_aux_cls': {'mean': 4.620487213134766, 'all_finite': True}, 'align_anchor': {'mean': 6.464092254638672, 'all_finite': True}, 'align_coarse': {'mean': 5.022568702697754, 'all_finite': True}, 'align_scale': {'mean': 0.17753100395202637, 'all_finite': True}, 'align_targetness': {'mean': 0.04292986914515495, 'all_finite': True}, 'align_v2_quality': {'mean': 0.6927909851074219, 'all_finite': True}, 'align_v2_route': {'mean': 0.6324087381362915, 'all_finite': True}, 'align_gmls_gt_quality': {'mean': 0.04145378619432449, 'all_finite': True}, 'align_dmls_gt_quality': {'mean': 2.08282199309906e-05, 'all_finite': True}}
-[NAN GUARD] RGB paths: ['/mnt/sda/taochangyong/Projects/datasets/Anti-UAV/RGB/images/train/20190925_183946_1_4_000840.jpg', '/mnt/sda/taochangyong/Projects/datasets/Anti-UAV/RGB/images/train/20190926_193515_1_1_000480.jpg', '/mnt/sda/taochangyong/Projects/datasets/Anti-UAV/RGB/images/train/20190926_183941_1_8_000520.jpg', '/mnt/sda/taochangyong/Projects/datasets/Anti-UAV/RGB/images/train/20190926_141816_1_5_000600.jpg']
-[rank1]: Traceback (most recent call last):
-[rank1]:   File "/mnt/sda/taochangyong/Projects/Model/YOLO-tcy_v5/train_gmls_v2_roi_hybrid.py", line 16, in <module>
-[rank1]:     run_train(args)
-[rank1]:   File "/mnt/sda/taochangyong/Projects/Model/YOLO-tcy_v5/gmls_roi_onehead_v2/runner.py", line 398, in run_train
-[rank1]:     raise FloatingPointError(
-[rank1]: FloatingPointError: [NAN GUARD] exceeded 3 bad windows in epoch 1. Inspect runs/gmls_v2_roi_hybrid/yolo26m_AntiUAV_GMLSv2_SingleHead_GlobalAux_Top2_OfficialPT_100e_seed0/nan_diagnostics; do not silently train through persistent NaNs.
-[rank0]:[W1119 12:47:09.089154435 ProcessGroupNCCL.cpp:1496] Warning: WARNING: destroy_process_group() was not called before program exit, which can leak resources. For more info, please see https://pytorch.org/docs/stable/distributed.html#shutdown (function operator())
-W1119 12:47:11.173000 1397069 site-packages/torch/distributed/elastic/multiprocessing/api.py:897] Sending process 1397161 closing signal SIGTERM
-E1119 12:47:11.388000 1397069 site-packages/torch/distributed/elastic/multiprocessing/api.py:869] failed (exitcode: 1) local_rank: 0 (pid: 1397160) of binary: /mnt/sda/taochangyong/.conda/envs/tcy/bin/python
-Traceback (most recent call last):
-  File "/mnt/sda/taochangyong/.conda/envs/tcy/lib/python3.10/runpy.py", line 196, in _run_module_as_main
-    return _run_code(code, main_globals, None,
-  File "/mnt/sda/taochangyong/.conda/envs/tcy/lib/python3.10/runpy.py", line 86, in _run_code
-    exec(code, run_globals)
-  File "/mnt/sda/taochangyong/.conda/envs/tcy/lib/python3.10/site-packages/torch/distributed/run.py", line 922, in <module>
-    main()
-  File "/mnt/sda/taochangyong/.conda/envs/tcy/lib/python3.10/site-packages/torch/distributed/elastic/multiprocessing/errors/__init__.py", line 355, in wrapper
-    return f(*args, **kwargs)
-  File "/mnt/sda/taochangyong/.conda/envs/tcy/lib/python3.10/site-packages/torch/distributed/run.py", line 918, in main
-    run(args)
-  File "/mnt/sda/taochangyong/.conda/envs/tcy/lib/python3.10/site-packages/torch/distributed/run.py", line 909, in run
-    elastic_launch(
-  File "/mnt/sda/taochangyong/.conda/envs/tcy/lib/python3.10/site-packages/torch/distributed/launcher/api.py", line 138, in __call__
-    return launch_agent(self._config, self._entrypoint, list(args))
-  File "/mnt/sda/taochangyong/.conda/envs/tcy/lib/python3.10/site-packages/torch/distributed/launcher/api.py", line 269, in launch_agent
-    raise ChildFailedError(
-torch.distributed.elastic.multiprocessing.errors.ChildFailedError: 
-============================================================
-/mnt/sda/taochangyong/Projects/Model/YOLO-tcy_v5/train_gmls_v2_roi_hybrid.py FAILED
-------------------------------------------------------------
-Failures:
-  <NO_OTHER_FAILURES>
-------------------------------------------------------------
-Root Cause (first observed failure):
-[0]:
-  time      : 2026-11-19_12:47:11
-  host      : user-X640-G50
-  rank      : 0 (local_rank: 0)
-  exitcode  : 1 (pid: 1397160)
-  error_file: <N/A>
-  traceback : To enable traceback see: https://pytorch.org/docs/stable/elastic/errors.html
-============================================================
