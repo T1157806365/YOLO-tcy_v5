@@ -1,21 +1,21 @@
-traincc:
+traincc: |
   conda activate tcy
   cd /mnt/sda/taochangyong/Projects/Model/YOLO-tcy_v5
   mkdir -p logs pid
-  nohup python -u train_gmls_v2_roi_hybrid.py \
-    --cfg configs/experiments/gmls_v2_roi/uavcb_gmls_v2_roi_single_head_hybrid_officialpt_top2_100e.yaml \
-    > logs/GMLSv2_OneHeadHybrid_Top2_100e_0.log 2>&1 &
-  echo $! > pid/GMLSv2_OneHeadHybrid_Top2_100e_0.pid
-  tail -f logs/GMLSv2_OneHeadHybrid_Top2_100e_0.log
+  nohup python -u train_gmls_v2_dualhead_hybrid.py \
+    --cfg configs/experiments/gmls_v2_roi/uavcb_gmls_v2_geo_center_dualhead_scratch100.yaml \
+    > logs/uavcb_geo_dualhead_100e.log 2>&1 &
+  echo $! > pid/uavcb_geo_dualhead_100e.pid
+  tail -f logs/uavcb_geo_dualhead_100e.log
 
   conda activate tcy
   cd /mnt/sda/taochangyong/Projects/Model/YOLO-tcy_v5
-  python val_gmls_v2_roi_hybrid.py \
-    --cfg configs/experiments/gmls_v2_roi/uavcb_gmls_v2_roi_single_head_hybrid_officialpt_top2_100e.yaml \
-    --weights runs/gmls_v2_roi_hybrid/yolo26m_UAVCB_GMLSv2_SingleHead_GlobalAux_Top2_OfficialPT_100e_seed0/weights/best.pt \
+  python val_gmls_v2_dualhead_hybrid.py \
+    --cfg configs/experiments/gmls_v2_roi/uavcb_gmls_v2_geo_center_dualhead_scratch100.yaml \
+    --weights runs/gmls_v2_roi_hybrid/yolo26m_UAVCB_GeoCenter_DualHead_GlobalAux_Top2_Scratch100_seed0/weights/best.pt \
     --split test \
-    --device 1 \
-    --batch 4 \
+    --device 0 \
+    --batch 2 \
     --workers 4 \
     --warmup 3 \
     --plots
@@ -23,10 +23,10 @@ traincc:
   conda activate tcy
   cd /mnt/sda/taochangyong/Projects/Model/YOLO-tcy_v5
   python visualize_gmls_v2_roi_hybrid_full.py \
-    --cfg configs/experiments/gmls_v2_roi/uavcb_gmls_v2_roi_single_head_hybrid_officialpt_top2_100e.yaml \
-    --weights runs/gmls_v2_roi_hybrid/yolo26m_UAVCB_GMLSv2_SingleHead_GlobalAux_Top2_OfficialPT_100e_seed0/weights/best.pt \
+    --cfg configs/experiments/gmls_v2_roi/uavcb_gmls_v2_geo_center_dualhead_scratch100.yaml \
+    --weights runs/gmls_v2_roi_hybrid/yolo26m_UAVCB_GeoCenter_DualHead_GlobalAux_Top2_Scratch100_seed0/weights/best.pt \
     --split test \
-    --device 1 \
+    --device 0 \
     --indices 0 50 100 150 200 250 300 350 400 450 500 550 600 \
     --conf 0.25 \
     --iou 0.70 \
@@ -97,9 +97,13 @@ model:
     geometry_grad_scale: 0.1
     min_gt_visible: 0.6
     topk: 2
+    top2_diverse_enabled: true
     p3_channels: 512
     min_roi_separation: 0.1
     aux_bn_eval: true
+  dual_head:
+    enabled: true
+    scope: global_neck_and_detect_only
 data:
   rgb: /mnt/sda/taochangyong/Projects/Model/YOLO-tcy_v5/configs/datasets/UAV-CB-RGB.yaml
   tir: /mnt/sda/taochangyong/Projects/Model/YOLO-tcy_v5/configs/datasets/UAV-CB-TIR.yaml
@@ -108,7 +112,7 @@ data:
   tir_imgsz: 640
   pair_mode: relative
 train:
-  device: 5,6
+  device: 4,5
   batch: 16
   batch_mode: global
   accumulate: 2
@@ -167,6 +171,10 @@ loss:
     v2_quality_iou_weight: 0.8
     v2_quality_advantage: 0.05
     v2_route_target_temperature: 0.05
+    lambda_final_center: 0.25
+    final_center_norm_px: 8.0
+    final_center_beta: 0.5
+    final_center_warmup_epochs: 10
   roi:
     lambda_local: 1.0
     lambda_guide: 0.2
@@ -181,4 +189,4 @@ eval:
   max_det: 300
 output:
   project: runs/gmls_v2_roi_hybrid
-  name: yolo26m_UAVCB_GMLSv2_SingleHead_GlobalAux_Top2_OfficialPT_100e_seed0_0
+  name: yolo26m_UAVCB_GeoCenter_DualHead_GlobalAux_Top2_Scratch100_seed0

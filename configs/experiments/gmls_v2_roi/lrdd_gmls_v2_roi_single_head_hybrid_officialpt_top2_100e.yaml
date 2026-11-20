@@ -14,7 +14,7 @@ traincc:
     --cfg configs/experiments/gmls_v2_roi/lrdd_gmls_v2_roi_single_head_hybrid_officialpt_top2_100e.yaml \
     --weights runs/gmls_v2_roi_hybrid/yolo26m_LRDD_GMLSv2_SingleHead_GlobalAux_Top2_OfficialPT_100e_seed0/weights/best.pt \
     --split test \
-    --device 1 \
+    --device 4 \
     --batch 4 \
     --workers 4 \
     --warmup 3 \

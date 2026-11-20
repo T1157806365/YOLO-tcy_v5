@@ -12,9 +12,9 @@ traincc:
   cd /mnt/sda/taochangyong/Projects/Model/YOLO-tcy_v5
   python val_gmls_v2_roi_hybrid.py \
     --cfg configs/experiments/gmls_v2_roi/antiuav_gmls_v2_roi_single_head_hybrid_officialpt_top2_100e.yaml \
-    --weights runs/gmls_v2_roi_hybrid/yolo26m_AntiUAV_GMLSv2_SingleHead_GlobalAux_Top2_OfficialPT_100e_seed0_EmptyGTFixV1/weights/best.pt \
+    --weights runs/gmls_v2_roi_hybrid/yolo26m_AntiUAV_GMLSv2_SingleHead_GlobalAux_Top2_OfficialPT_100e_seed0/weights/best.pt \
     --split test \
-    --device 1 \
+    --device 0 \
     --batch 4 \
     --workers 4 \
     --warmup 3 \
@@ -24,9 +24,9 @@ traincc:
   cd /mnt/sda/taochangyong/Projects/Model/YOLO-tcy_v5
   python visualize_gmls_v2_roi_hybrid_full.py \
     --cfg configs/experiments/gmls_v2_roi/antiuav_gmls_v2_roi_single_head_hybrid_officialpt_top2_100e.yaml \
-    --weights runs/gmls_v2_roi_hybrid/yolo26m_AntiUAV_GMLSv2_SingleHead_GlobalAux_Top2_OfficialPT_100e_seed0_EmptyGTFixV1/weights/best.pt \
+    --weights runs/gmls_v2_roi_hybrid/yolo26m_AntiUAV_GMLSv2_SingleHead_GlobalAux_Top2_OfficialPT_100e_seed0/weights/best.pt \
     --split test \
-    --device 3 \
+    --device 4 \
     --indices 0 500 1000 1500 2000 2500 3000 3500 4000 \
     --conf 0.25 \
     --iou 0.70 \

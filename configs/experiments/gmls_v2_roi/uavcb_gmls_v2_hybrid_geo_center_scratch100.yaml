@@ -6,9 +6,9 @@ traincc: |
     train_gmls_v2_roi_hybrid.py \
     --cfg configs/experiments/gmls_v2_roi/uavcb_gmls_v2_hybrid_geo_center_scratch100.yaml \
     --device 5,6 \
-    > logs/gmls_geo_center_scratch100.log 2>&1 &
-  echo $! > pid/gmls_geo_center_scratch100.pid
-  tail -f logs/gmls_geo_center_scratch100.log
+    > logs/gmls_geo_center_scratch100_0.log 2>&1 &
+  echo $! > pid/gmls_geo_center_scratch100_0.pid
+  tail -f logs/gmls_geo_center_scratch100_0.log
 
   conda activate tcy
   cd /mnt/sda/taochangyong/Projects/Model/YOLO-tcy_v5
@@ -16,7 +16,7 @@ traincc: |
     --cfg configs/experiments/gmls_v2_roi/uavcb_gmls_v2_hybrid_geo_center_scratch100.yaml \
     --weights runs/gmls_v2_roi_hybrid/yolo26m_UAVCB_GMLSv2_Hybrid_GeoCenter_Scratch100_DDP56_seed0/weights/best.pt \
     --split test \
-    --device 1 \
+    --device 0 \
     --batch 4 \
     --workers 4 \
     --warmup 3 \
@@ -28,7 +28,7 @@ traincc: |
     --cfg configs/experiments/gmls_v2_roi/uavcb_gmls_v2_hybrid_geo_center_scratch100.yaml \
     --weights runs/gmls_v2_roi_hybrid/yolo26m_UAVCB_GMLSv2_Hybrid_GeoCenter_Scratch100_DDP56_seed0/weights/best.pt \
     --split test \
-    --device 6 \
+    --device 0 \
     --indices 0 50 100 150 200 250 300 350 400 450 500 550 600 \
     --conf 0.25 \
     --iou 0.70 \
@@ -111,7 +111,7 @@ data:
   tir_imgsz: 640
   pair_mode: relative
 train:
-  device: 5,6
+  device: 4,5
   batch: 16
   batch_mode: global
   accumulate: 2
@@ -188,4 +188,4 @@ eval:
   max_det: 300
 output:
   project: runs/gmls_v2_roi_hybrid
-  name: yolo26m_UAVCB_GMLSv2_Hybrid_GeoCenter_Scratch100_DDP56_seed0
+  name: yolo26m_UAVCB_GMLSv2_Hybrid_GeoCenter_Scratch100_DDP56_seed0_0
