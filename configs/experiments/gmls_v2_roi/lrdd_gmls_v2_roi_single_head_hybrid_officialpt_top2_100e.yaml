@@ -4,9 +4,9 @@ traincc:
   mkdir -p logs pid
   nohup python -u train_gmls_v2_roi_hybrid.py \
     --cfg configs/experiments/gmls_v2_roi/lrdd_gmls_v2_roi_single_head_hybrid_officialpt_top2_100e.yaml \
-    > logs/LRDD_OneHeadHybrid_Top2_100e.log 2>&1 &
-  echo $! > pid/LRDD_OneHeadHybrid_Top2_100e.pid
-  tail -f logs/LRDD_OneHeadHybrid_Top2_100e.log
+    > logs/LRDD_TWoHeadHybrid_Top2_100e.log 2>&1 &
+  echo $! > pid/LRDD_TWoHeadHybrid_Top2_100e.pid
+  tail -f logs/LRDD_TWoHeadHybrid_Top2_100e.log
 
   conda activate tcy
   cd /mnt/sda/taochangyong/Projects/Model/YOLO-tcy_v5
@@ -97,11 +97,13 @@ model:
     geometry_grad_scale: 0.1
     min_gt_visible: 0.6
     topk: 2
-    # TOP2_DIVERSE_INTEGRATED_V1: enable the Val-tested GT-free inference rule.
     top2_diverse_enabled: true
     p3_channels: 512
     min_roi_separation: 0.1
     aux_bn_eval: true
+  dual_head:
+    enabled: true
+    scope: global_neck_and_detect_only
 data:
   rgb: /mnt/sda/taochangyong/Projects/Model/YOLO-tcy_v5/configs/datasets/LRDD_v3-RGB.yaml
   tir: /mnt/sda/taochangyong/Projects/Model/YOLO-tcy_v5/configs/datasets/LRDD_v3-TIR.yaml
@@ -169,6 +171,10 @@ loss:
     v2_quality_iou_weight: 0.8
     v2_quality_advantage: 0.05
     v2_route_target_temperature: 0.05
+    lambda_final_center: 0.25
+    final_center_norm_px: 8.0
+    final_center_beta: 0.5
+    final_center_warmup_epochs: 10
   roi:
     lambda_local: 1.0
     lambda_guide: 0.2
@@ -183,4 +189,4 @@ eval:
   max_det: 300
 output:
   project: runs/gmls_v2_roi_hybrid
-  name: yolo26m_LRDD_GMLSv2_SingleHead_GlobalAux_Top2_OfficialPT_100e_seed0
+  name: yolo26m_LRDD_GeoCenter_DualHead_GlobalAux_Top2_Scratch100_seed0
