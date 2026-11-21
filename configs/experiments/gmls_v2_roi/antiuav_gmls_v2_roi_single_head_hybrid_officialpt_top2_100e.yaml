@@ -101,16 +101,19 @@ model:
     p3_channels: 512
     min_roi_separation: 0.1
     aux_bn_eval: true
+  dual_head:
+    enabled: true
+    scope: global_neck_and_detect_only
 data:
-  rgb: /mnt/sda/taochangyong/Projects/Model/YOLO-tcy_v5/configs/datasets/Anti-UAV-RGB.yaml
-  tir: /mnt/sda/taochangyong/Projects/Model/YOLO-tcy_v5/configs/datasets/Anti-UAV-TIR.yaml
+  rgb: /mnt/sda/taochangyong/Projects/Model/YOLO-tcy_v5/configs/datasets/LRDD_v3-RGB.yaml
+  tir: /mnt/sda/taochangyong/Projects/Model/YOLO-tcy_v5/configs/datasets/LRDD_v3-TIR.yaml
   rgb_imgsz: 1920
   rgb_semantic_imgsz: 640
   tir_imgsz: 640
   pair_mode: relative
 train:
-  device: 2,3
-  batch: 8
+  device: 1
+  batch: 4
   batch_mode: global
   accumulate: 2
   val_batch: 4
@@ -186,4 +189,4 @@ eval:
   max_det: 300
 output:
   project: runs/gmls_v2_roi_hybrid
-  name: yolo26m_AntiUAV_GMLSv2_SingleHead_GlobalAux_Top2_OfficialPT_100e_seed0
+  name: yolo26m_LRDD_GeoCenter_DualHead_GlobalAux_Top2_Scratch100_seed0

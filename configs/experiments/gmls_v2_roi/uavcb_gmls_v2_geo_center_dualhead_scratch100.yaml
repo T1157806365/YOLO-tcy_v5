@@ -15,7 +15,7 @@ traincc: |
     --weights runs/gmls_v2_roi_hybrid/yolo26m_UAVCB_GeoCenter_DualHead_GlobalAux_Top2_Scratch100_seed0/weights/best.pt \
     --split test \
     --device 0 \
-    --batch 2 \
+    --batch 4 \
     --workers 4 \
     --warmup 3 \
     --plots

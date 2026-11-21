@@ -1,0 +1,93 @@
+{
+  "source": "configs/experiments/gmls_v2_roi/uavcb_gmls_v2_geo_center_dualhead_scratch100.yaml",
+  "sha256": "50ad21b8585b37c806949f0dec94e4923df6a1d9b598728fc0a700531826cf88",
+  "groups": [
+    {
+      "id": "01",
+      "name": "Full",
+      "description": "完整 GeoCenter V2 + GMLS-v2 + Top-2 + 双头",
+      "kind": "dual",
+      "cfg": "configs/experiments/gmls_v2_roi/dualhead_8groups/01.yaml",
+      "output": "runs/gmls_v2_roi_8groups/01_Full_seed0",
+      "edits": {}
+    },
+    {
+      "id": "02",
+      "name": "NoGMLSCorrect",
+      "description": "关闭 GMLS-v2 修正分支，质量与路由损失一并关闭",
+      "kind": "dual",
+      "cfg": "configs/experiments/gmls_v2_roi/dualhead_8groups/02.yaml",
+      "output": "runs/gmls_v2_roi_8groups/02_NoGMLSCorrect_seed0",
+      "edits": {
+        "model.rlsfa_gtga_centered.gmls_v2_correction_enabled": false,
+        "loss.alignment.lambda_v2_quality": 0.0,
+        "loss.alignment.lambda_v2_route": 0.0
+      }
+    },
+    {
+      "id": "03",
+      "name": "NoFinalCenter",
+      "description": "仅关闭 GeoCenter V2 的 Final Center Loss",
+      "kind": "dual",
+      "cfg": "configs/experiments/gmls_v2_roi/dualhead_8groups/03.yaml",
+      "output": "runs/gmls_v2_roi_8groups/03_NoFinalCenter_seed0",
+      "edits": {
+        "loss.alignment.lambda_final_center": 0.0
+      }
+    },
+    {
+      "id": "04",
+      "name": "Top1",
+      "description": "只保留一个 ROI，关闭 Top-2 Diverse",
+      "kind": "dual",
+      "cfg": "configs/experiments/gmls_v2_roi/dualhead_8groups/04.yaml",
+      "output": "runs/gmls_v2_roi_8groups/04_Top1_seed0",
+      "edits": {
+        "model.roi_single_head.topk": 1,
+        "model.roi_single_head.top2_diverse_enabled": false
+      }
+    },
+    {
+      "id": "05",
+      "name": "OneHeadGlobalAux",
+      "description": "单共享头，保留全局辅助监督",
+      "kind": "one",
+      "cfg": "configs/experiments/gmls_v2_roi/dualhead_8groups/05.yaml",
+      "output": "runs/gmls_v2_roi_8groups/05_OneHeadGlobalAux_seed0",
+      "edits": {}
+    },
+    {
+      "id": "06",
+      "name": "DualNoGlobalAux",
+      "description": "双头结构保留，关闭全局辅助监督",
+      "kind": "dual",
+      "cfg": "configs/experiments/gmls_v2_roi/dualhead_8groups/06.yaml",
+      "output": "runs/gmls_v2_roi_8groups/06_DualNoGlobalAux_seed0",
+      "edits": {
+        "loss.roi.lambda_global_aux": 0.0
+      }
+    },
+    {
+      "id": "07",
+      "name": "LocalOnly",
+      "description": "单共享头，关闭全局辅助监督（只有 Local）",
+      "kind": "one",
+      "cfg": "configs/experiments/gmls_v2_roi/dualhead_8groups/07.yaml",
+      "output": "runs/gmls_v2_roi_8groups/07_LocalOnly_seed0",
+      "edits": {
+        "loss.roi.lambda_global_aux": 0.0
+      }
+    },
+    {
+      "id": "08",
+      "name": "NoTop2Diverse",
+      "description": "推理策略消融：使用 01 的 checkpoint，仅关 Diverse",
+      "kind": "eval",
+      "cfg": "configs/experiments/gmls_v2_roi/dualhead_8groups/08.yaml",
+      "output": "runs/gmls_v2_roi_8groups/08_NoTop2Diverse_seed0",
+      "edits": {
+        "model.roi_single_head.top2_diverse_enabled": false
+      }
+    }
+  ]
+}
