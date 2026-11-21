@@ -2,7 +2,7 @@ traincc:
   conda activate tcy
   cd /mnt/sda/taochangyong/Projects/Model/YOLO-tcy_v5
   mkdir -p logs pid
-  nohup python -u train_gmls_v2_roi_hybrid.py \
+  nohup python -u train_gmls_roi_hybrid.py \
     --cfg configs/experiments/gmls_v2_roi/antiuav_gmls_v2_roi_single_head_hybrid_officialpt_top2_100e.yaml \
     > logs/AntiUAV_Hybrid_AMPGuardV2.log 2>&1 &
   echo $! > pid/AntiUAV_Hybrid_AMPGuardV2.pid
@@ -10,11 +10,11 @@ traincc:
 
   conda activate tcy
   cd /mnt/sda/taochangyong/Projects/Model/YOLO-tcy_v5
-  python val_gmls_v2_roi_hybrid.py \
+  python val_gmls_roi_hybrid.py \
     --cfg configs/experiments/gmls_v2_roi/antiuav_gmls_v2_roi_single_head_hybrid_officialpt_top2_100e.yaml \
-    --weights runs/gmls_v2_roi_hybrid/yolo26m_AntiUAV_GMLSv2_SingleHead_GlobalAux_Top2_OfficialPT_100e_seed0/weights/best.pt \
+    --weights runs/gmls_v2_roi_hybrid/yolo26m_AntiUAV_GeoCenter_DualHead_GlobalAux_Top2_Scratch100_seed0/weights/best.pt \
     --split test \
-    --device 0 \
+    --device 6 \
     --batch 4 \
     --workers 4 \
     --warmup 3 \
@@ -105,15 +105,15 @@ model:
     enabled: true
     scope: global_neck_and_detect_only
 data:
-  rgb: /mnt/sda/taochangyong/Projects/Model/YOLO-tcy_v5/configs/datasets/LRDD_v3-RGB.yaml
-  tir: /mnt/sda/taochangyong/Projects/Model/YOLO-tcy_v5/configs/datasets/LRDD_v3-TIR.yaml
+  rgb: /mnt/sda/taochangyong/Projects/Model/YOLO-tcy_v5/configs/datasets/Anti-UAV-RGB.yaml
+  tir: /mnt/sda/taochangyong/Projects/Model/YOLO-tcy_v5/configs/datasets/Anti-UAV-TIR.yaml
   rgb_imgsz: 1920
   rgb_semantic_imgsz: 640
   tir_imgsz: 640
   pair_mode: relative
 train:
-  device: 1
-  batch: 4
+  device: 2,3
+  batch: 8
   batch_mode: global
   accumulate: 2
   val_batch: 4
@@ -189,4 +189,4 @@ eval:
   max_det: 300
 output:
   project: runs/gmls_v2_roi_hybrid
-  name: yolo26m_LRDD_GeoCenter_DualHead_GlobalAux_Top2_Scratch100_seed0
+  name: yolo26m_AntiUAV_GeoCenter_DualHead_GlobalAux_Top2_Scratch100_seed0

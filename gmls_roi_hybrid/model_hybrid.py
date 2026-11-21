@@ -12,12 +12,14 @@ import torch
 from torch import nn
 import torch.nn.functional as F
 from engine.evaluator import postprocess_predictions
-from gmls_roi_single_head.model import (
+from .model_base import (
     GMLSV2ROISingleHead, ROIGuide, _gt_centers, _guide_supervision,
     _extract_component_losses,
 )
-from gmls_roi_single_head.geometry import sample_roi_pair
+from .geometry import sample_roi_pair
 from .multi_roi import labels_for_crops, per_image_merge
+from .geo_losses import final_center_loss  # GEO_FINAL_CENTER_SCRATCH100_V2
+from .top2_diverse import DiverseTop2Selector, SelectionOptions  # TOP2_DIVERSE_INTEGRATED_V1
 
 
 class FeatureAwareGuide(ROIGuide):
@@ -83,6 +85,21 @@ class GMLSV2OneHeadHybrid(GMLSV2ROISingleHead):
         self.num_rois=int(rc.get('topk',2))
         if self.num_rois not in (1,2):raise ValueError('topk must be 1 or 2')
         self.min_roi_separation=float(rc.get('min_roi_separation',.10))
+        # TOP2_DIVERSE_INTEGRATED_V1: inference-only, optional per-YAML behavior.
+        # In particular, Anti-UAV uses the original selection unless explicitly enabled.
+        self.top2_diverse_enabled = bool(rc.get('top2_diverse_enabled', False))
+        top2_opts = SelectionOptions(
+            overlap_weight=float(rc.get('top2_diverse_overlap_weight', .20)),
+            peak_weight=float(rc.get('top2_diverse_peak_weight', .04)),
+            switch_margin=float(rc.get('top2_diverse_switch_margin', .01)),
+            min_novel_mass=float(rc.get('top2_diverse_min_novel_mass', .02)),
+            candidate_peaks=int(rc.get('top2_diverse_candidate_peaks', 24)),
+        )
+        self._top2_diverse = (
+            DiverseTop2Selector(top2_opts, _second_candidate, self.roi_size)
+            if self.top2_diverse_enabled and self.num_rois == 2 else None
+        )
+
         self.guide=FeatureAwareGuide(
             feature_channels=int(rc.get('p3_channels',512)),
             hidden=int(rc.get('guide_hidden',32)),
@@ -118,6 +135,17 @@ class GMLSV2OneHeadHybrid(GMLSV2ROISingleHead):
         assisted=primary.new_zeros(())
         if self.num_rois==2:
             secondary=_second_candidate(logits,primary,anchor,self.guide.temperature,self.min_roi_separation)
+            # TOP2_DIVERSE_INTEGRATED_V1: identical candidate scorer to the
+            # previously validated inference ablation; never uses GT.
+            # If legacy ablation has temporarily monkeypatched _second_candidate,
+            # defer to that script so its baseline/diverse comparison stays valid.
+            if (not train_rois and self._top2_diverse is not None and
+                    _second_candidate is self._top2_diverse.base_fn):
+                secondary = self._top2_diverse(
+                    logits, primary, anchor, self.guide.temperature,
+                    self.min_roi_separation, batch=batch, legacy_secondary=secondary,
+                )
+
             if train_rois:
                 gt,valid=_gt_centers(batch,primary)
                 ratio=self.gt_second_probability*max(0.,1-self.epoch/max(self.gt_second_epochs,1))
@@ -209,6 +237,23 @@ class GMLSV2OneHeadHybrid(GMLSV2ROISingleHead):
         else:
             stats={}
             alignment_loss=local_loss.new_zeros(())
+        # GEO_FINAL_CENTER_SCRATCH100_V2: supervise the ACTUAL final Warp,
+        # q=S*p+t. Only 1:1 RGB/TIR GT during training; never inference.
+        geo_cfg=self.cfg.get('loss',{}).get('alignment',{})
+        final_center_weight=float(geo_cfg.get('lambda_final_center',0.0))
+        if final_center_weight>0.0 and g.alignment_loss_enabled:
+            final_center_raw,final_center_pairs,final_center_error=final_center_loss(
+                batch,ex['alignment_info'],
+                pixel_norm=float(geo_cfg.get('final_center_norm_px',8.0)),
+                beta=float(geo_cfg.get('final_center_beta',0.5)))
+            geo_warm=max(0,int(geo_cfg.get('final_center_warmup_epochs',10)))
+            geo_ramp=min(1.,(float(getattr(self,'epoch',0))+1.)/geo_warm) if geo_warm else 1.
+            alignment_loss=alignment_loss+final_center_weight*geo_ramp*B*final_center_raw
+        else:
+            final_center_raw=alignment_loss.new_zeros(())
+            final_center_pairs=0
+            final_center_error=alignment_loss.new_zeros(())
+            geo_ramp=0.
         gt,valid=_gt_centers(batch,ex['center_pred'])
         guide_loss,center_loss=_guide_supervision(
             ex['guide_logits'],ex['center_pred'],gt,valid,
@@ -223,6 +268,10 @@ class GMLSV2OneHeadHybrid(GMLSV2ROISingleHead):
                'roi_positive':float(npositive)/max(B*K,1),
                'roi_tir_valid':ex['roi'].tir_valid.mean().detach(),
                'roi_count':float(K), 'gt_assist':ex['gt_assisted'].detach()}
+        parts['align_final_center']=final_center_raw.detach()
+        parts['align_final_center_px']=final_center_error.detach()
+        parts['align_final_center_pairs']=float(final_center_pairs)
+        parts['align_final_center_ramp']=float(geo_ramp)
         for prefix,raw_items in [('local',local_items),('global_aux',global_items)]:
             components=_extract_component_losses(raw_items,prefix)
             parts.update(components)

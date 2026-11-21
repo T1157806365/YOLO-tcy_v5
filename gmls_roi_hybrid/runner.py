@@ -1,4 +1,4 @@
-"""Dual-GPU joint optimization and exact global val statistics for one-head GMLS ROI.
+"""Dual-GPU joint optimization and exact global val statistics for unified-dualhead GMLS ROI.
 
 Evaluation is split across all ranks with non-overlapping examples; raw image
 statistics are gathered once and AP is computed on rank0 (NOT averaged AP).
@@ -19,7 +19,7 @@ from engine.trainer import build_optimizer, build_scheduler
 from engine.evaluator import prepare_semantic_ground_truth, process_single_image
 from datasets.rsdt_dataset import build_rsdt_dataset
 from .multi_roi import roi_coverage_union
-from .model import GMLSV2OneHeadHybrid
+from .model import build_model as GMLSV2OneHeadHybrid
 
 
 def build_loader(cfg,split,batch,workers,rank=0,world=1):
@@ -240,7 +240,7 @@ def _checkpoint(path,net,opt,sched,scaler,epoch,best,best_epoch,cfg):
 def _load_checkpoint(path,net,*,require_opt=False):
     obj=torch.load(path,map_location='cpu',weights_only=False)
     if obj.get('architecture')!=net.architecture:
-        raise ValueError('Checkpoint is NOT the single-head variant; do not load old GlobalLocal checkpoints')
+        raise ValueError('Checkpoint is NOT the selected unified variant; do not load old GlobalLocal checkpoints')
     state=obj['model_state_dict']
     if state and all(k.startswith('module.') for k in state):
         state={k[7:]:v for k,v in state.items()}
@@ -252,6 +252,13 @@ def _load_checkpoint(path,net,*,require_opt=False):
 
 def run_train(args):
     cfg=load_config(args.cfg);tc=cfg['train']
+    # Unified 01/10: both 100e (historical) and 200e (new) are supported.
+    if int(tc.get('epochs',0)) not in (100, 200):
+        raise ValueError('Unified 01/10 requires train.epochs to be 100 or 200')
+    if tc.get('init_weights') or tc.get('resume'):
+        raise ValueError('Refusing old trained checkpoints in scratch comparison')
+    if not bool(cfg.get('model',{}).get('pretrained',False)):
+        raise ValueError('Must use original official YOLO26m pretrained initialization')
     device_spec=args.device or tc.get('device','5,6')
     if args.smoke:
         device_spec=args.device or '5'
@@ -269,7 +276,6 @@ def run_train(args):
     val_loader=None if args.smoke else build_loader(
         cfg,'val',int(tc.get('val_batch',1)),int(tc.get('val_workers',2)),rank,world)[0]
     net=GMLSV2OneHeadHybrid(cfg,verbose=rank==0).to(device)
-    # GEO_FINAL_CENTER_SCRATCH100_V2: no trained-checkpoint initialization.
     run_dir=Path(cfg['output']['project'])/cfg['output']['name']
     resumed=None
     if args.resume:
@@ -285,7 +291,7 @@ def run_train(args):
     amp=bool(tc.get('amp',True)) and device.type=='cuda'
     scaler=torch.amp.GradScaler('cuda',enabled=amp,init_scale=float(tc.get('amp_init_scale',1024.0)))
     first_epoch=0;best=-1.;best_epoch=0
-    best_align=-1.0
+    best_align=-1.0  # GEO_FINAL_CENTER_SCRATCH100_V2
     if resumed is not None:
         opt.load_state_dict(resumed['optimizer_state_dict'])
         sched.load_state_dict(resumed['scheduler_state_dict'])
@@ -320,7 +326,7 @@ def run_train(args):
         # AMP scaler overflows are normal early in training; they are not bad batches.
         amp_overflow_streak=0
         max_amp_overflows=int(tc.get('amp_max_consecutive_overflows',16))
-        bar=tqdm(train_loader,disable=rank!=0,ncols=154,desc=f'one-head {epoch+1}/{epochs}')
+        bar=tqdm(train_loader,disable=rank!=0,ncols=154,desc=f'gmls-hybrid {epoch+1}/{epochs}')
         for step,batch_data in enumerate(bar):
             batch_data=preprocess_batch(batch_data,device)
             sync=((step+1)%accum==0 or (step+1)==len(train_loader))
@@ -360,7 +366,8 @@ def run_train(args):
                 else:
                     scaler.unscale_(opt)
                     clip=float(tc.get('grad_clip',10.))
-                    norm=torch.nn.utils.clip_grad_norm_(net.parameters(),max_norm=clip if clip>0 else float('inf'))
+                    # Compute norm WITHOUT clipping to preserve offending values.
+                    norm=torch.nn.utils.clip_grad_norm_(net.parameters(),max_norm=float('inf'))
                     bad_norm=not bool(torch.isfinite(norm.detach()).item())
                     norm_flag=torch.tensor(int(bad_norm),device=device,dtype=torch.int32)
                     if world>1:dist.all_reduce(norm_flag,op=dist.ReduceOp.MAX)
@@ -402,6 +409,7 @@ def run_train(args):
                         opt.zero_grad(set_to_none=True)
                     else:
                         amp_overflow_streak=0
+                        if clip>0: torch.nn.utils.clip_grad_norm_(net.parameters(),max_norm=clip)
                         scaler.step(opt);scaler.update()
                         opt.zero_grad(set_to_none=True)
                 if skipped_windows>max_skipped:
@@ -440,7 +448,7 @@ def run_train(args):
         report=evaluate(net,val_loader,device,cfg,rank=rank,world=world) if do_val else None
         if rank==0:
             score=report['metrics']['AP50:95'] if report else best
-            # GEO_FINAL_CENTER_SCRATCH100_V2: preserve best alignment model separately.
+            # GEO_FINAL_CENTER_SCRATCH100_V2: independent highest-Val-AlignIoU checkpoint.
             align_score=float(report['align_iou']) if report else -1.0
             align_improved=(report is not None and align_score>best_align)
             if align_improved:best_align=align_score
@@ -452,10 +460,14 @@ def run_train(args):
                   f'[EPOCH {epoch+1:03d}/{epochs}] LR={lr:.7g} train={train_seconds:.1f}s CPU',flush=True)
             def fmt(*keys):return ' '.join(f'{key}={stats.get(key,float("nan")):.5f}' for key in keys)
             print('[TRAIN LOCAL] '+fmt('local_det','local_box','local_cls','local_dfl'),flush=True)
-            print('[TRAIN GLOBAL AUX (SHARED HEAD)] '+fmt('global_aux_det','global_aux_weighted','global_aux_box','global_aux_cls','global_aux_dfl'),flush=True)
+            print('[TRAIN GLOBAL AUX (SEPARATE HEAD)] '+fmt('global_aux_det','global_aux_weighted','global_aux_box','global_aux_cls','global_aux_dfl'),flush=True)
             print('[TRAIN ALIGN] '+fmt('align_weighted','align_anchor','align_coarse','align_scale','align_targetness'),flush=True)
             print('[GMLS-v2]     '+fmt('align_v2_quality','align_v2_route','align_gmls_gt_quality','align_dmls_gt_quality'),flush=True)
-            print('[GEO FINAL]   '+fmt('align_final_center','align_final_center_px','align_final_center_pairs'),flush=True)
+            print('[GEO CENTER]  '+fmt('align_final_center','align_final_center_px','align_final_center_pairs','align_final_center_ramp'),flush=True)
+            if bool(cfg.get('model',{}).get('geo_box',{}).get('enabled',False)):
+                print('[GEO BOX]     '+fmt('geo_final_size','geo_final_giou','geo_final_box_weighted','geo_final_box_pairs','geo_final_box_iou'),flush=True)
+            else:
+                print('[GEO BOX]     disabled (01 Full baseline)',flush=True)
             print('[ROI GUIDE]   '+fmt('roi_guide','roi_center','roi_positive','roi_tir_valid','gt_assist','roi_count'),flush=True)
             if report:
                 m=report['metrics']

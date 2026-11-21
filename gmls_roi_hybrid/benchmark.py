@@ -177,7 +177,7 @@ def save_results(paths, summary, row):
         wr = csv.DictWriter(f, fieldnames=list(row.keys()))
         wr.writeheader()
         wr.writerow(row)
-    lines = ["=" * 65, "GMLS-v2 ONE HEAD HYBRID TEST BENCHMARK", "=" * 65]
+    lines = ["=" * 65, "GMLS-v2 UNIFIED DUAL HEAD HYBRID TEST BENCHMARK", "=" * 65]
     for k, v in row.items():
         lines.append(f"{k:<20s}: {v:12.4f}" if isinstance(v, (float, int)) else f"{k:<20s}: {v}")
     lines.extend(["-" * 65,
@@ -219,8 +219,8 @@ def _write_previews(batch, preds, ex, dest: Path, limit: int, counters: dict):
 def run_benchmark(args):
     # Deferred dependencies: original runner is NOT modified by this patch.
     from engine.runtime import load_config, select_device
-    from gmls_roi_onehead_v2.runner import build_loader, evaluate, _load_checkpoint
-    from gmls_roi_onehead_v2.model import GMLSV2OneHeadHybrid
+    from .runner import build_loader, evaluate, _load_checkpoint
+    from .model import build_model as GMLSV2OneHeadHybrid
 
     cfg = load_config(args.cfg)
     device = select_device(args.device)
@@ -231,7 +231,13 @@ def run_benchmark(args):
         run_dir = checkpoint.parent.parent
     else:
         run_dir = (Path(cfg['output']['project']) / cfg['output']['name']).resolve()
-    paths = report_paths(run_dir, args.split)
+    # TOP2_DIVERSE_INTEGRATED_V1: keep old evaluation/test/metrics.* untouched.
+    rc = cfg.get('model', {}).get('roi_single_head', {})
+    use_diverse = bool(rc.get('top2_diverse_enabled', False)) and int(rc.get('topk', 2)) == 2
+    report_split = f'top2_diverse_v1/{args.split}' if use_diverse else args.split
+    paths = report_paths(run_dir, report_split)
+    if use_diverse:
+        print(f'[TOP2 DIVERSE V1] ENABLED; results: {paths["directory"]}', flush=True)
     if args.plots is not None and str(args.plots).lower() not in ('none', 'false', '0'):
         print(f"[PLOTS] Reusing --plots request; plots will be saved INSIDE training folder: {paths['plots']}", flush=True)
         # Old preview files exclusively managed by this benchmark; do not touch checkpoints.

@@ -2,19 +2,19 @@ traincc: |
   conda activate tcy
   cd /mnt/sda/taochangyong/Projects/Model/YOLO-tcy_v5
   mkdir -p logs pid
-  nohup python -u train_gmls_v2_dualhead_hybrid.py \
+  nohup python -u train_gmls_roi_hybrid.py \
     --cfg configs/experiments/gmls_v2_roi/uavcb_gmls_v2_geo_center_dualhead_scratch100.yaml \
-    > logs/uavcb_geo_dualhead_100e.log 2>&1 &
-  echo $! > pid/uavcb_geo_dualhead_100e.pid
-  tail -f logs/uavcb_geo_dualhead_100e.log
+    > logs/uavcb_geo_dualhead_100e_0.log 2>&1 &
+  echo $! > pid/uavcb_geo_dualhead_100e_0.pid
+  tail -f logs/uavcb_geo_dualhead_100e_0.log
 
   conda activate tcy
   cd /mnt/sda/taochangyong/Projects/Model/YOLO-tcy_v5
-  python val_gmls_v2_dualhead_hybrid.py \
+  python val_gmls_roi_hybrid.py \
     --cfg configs/experiments/gmls_v2_roi/uavcb_gmls_v2_geo_center_dualhead_scratch100.yaml \
     --weights runs/gmls_v2_roi_hybrid/yolo26m_UAVCB_GeoCenter_DualHead_GlobalAux_Top2_Scratch100_seed0/weights/best.pt \
     --split test \
-    --device 0 \
+    --device 6 \
     --batch 4 \
     --workers 4 \
     --warmup 3 \
@@ -189,4 +189,4 @@ eval:
   max_det: 300
 output:
   project: runs/gmls_v2_roi_hybrid
-  name: yolo26m_UAVCB_GeoCenter_DualHead_GlobalAux_Top2_Scratch100_seed0
+  name: yolo26m_UAVCB_GeoCenter_DualHead_GlobalAux_Top2_Scratch100_seed0_0

@@ -2,7 +2,7 @@ traincc:
   conda activate tcy
   cd /mnt/sda/taochangyong/Projects/Model/YOLO-tcy_v5
   mkdir -p logs pid
-  nohup python -u train_gmls_v2_roi_hybrid.py \
+  nohup python -u train_gmls_roi_hybrid.py \
     --cfg configs/experiments/gmls_v2_roi/lrdd_gmls_v2_roi_single_head_hybrid_officialpt_top2_100e.yaml \
     > logs/LRDD_TWoHeadHybrid_Top2_100e.log 2>&1 &
   echo $! > pid/LRDD_TWoHeadHybrid_Top2_100e.pid
@@ -10,11 +10,11 @@ traincc:
 
   conda activate tcy
   cd /mnt/sda/taochangyong/Projects/Model/YOLO-tcy_v5
-  python val_gmls_v2_roi_hybrid.py \
+  python val_gmls_roi_hybrid.py \
     --cfg configs/experiments/gmls_v2_roi/lrdd_gmls_v2_roi_single_head_hybrid_officialpt_top2_100e.yaml \
     --weights runs/gmls_v2_roi_hybrid/yolo26m_LRDD_GMLSv2_SingleHead_GlobalAux_Top2_OfficialPT_100e_seed0/weights/best.pt \
     --split test \
-    --device 4 \
+    --device 6 \
     --batch 4 \
     --workers 4 \
     --warmup 3 \

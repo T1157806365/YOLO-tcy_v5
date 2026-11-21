@@ -3,7 +3,7 @@
 Train-only GT functions are separated; inference never reads GT.
 """
 import torch
-from gmls_roi_single_head.geometry import _meta_arrays
+from .geometry import _meta_arrays
 
 
 def labels_for_crops(batch, geo, k, min_visible=0.6):
