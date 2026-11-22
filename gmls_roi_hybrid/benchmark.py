@@ -250,7 +250,83 @@ def run_benchmark(args):
         make_plots = False
     if getattr(args, 'save_dir', None):
         print('[SAVE DIR] Ignoring --save-dir to keep reports inside the checkpoint training folder.', flush=True)
-    net = GMLSV2OneHeadHybrid(cfg, verbose=True).to(device)
+    # AUTO_HEAD_FROM_CHECKPOINT_V2
+    # Select model using the architecture saved in best.pt.
+    from .model_base import GMLSV2ROISingleHead
+    from .model_hybrid import GMLSV2OneHeadHybrid as SingleHead
+    from .model import GMLSV2DualHeadHybrid, GMLSV2GeoBoxDualHead
+
+    meta = torch.load(
+        checkpoint, map_location="cpu", weights_only=False
+    )
+    arch = meta.get("architecture")
+
+    classes = {
+        GMLSV2ROISingleHead.architecture: GMLSV2ROISingleHead,
+        SingleHead.architecture: SingleHead,
+        GMLSV2DualHeadHybrid.architecture: GMLSV2DualHeadHybrid,
+        GMLSV2GeoBoxDualHead.architecture: GMLSV2GeoBoxDualHead,
+    }
+
+    # Optional GPR-MS KD models
+    if arch not in classes and isinstance(arch, str) and "gprmskd" in arch:
+        from .kd_model import GPRMSKDGeoCenter, GPRMSKDGeoBox
+        classes[GPRMSKDGeoCenter.architecture] = GPRMSKDGeoCenter
+        classes[GPRMSKDGeoBox.architecture] = GPRMSKDGeoBox
+
+    if arch not in classes:
+        raise ValueError(
+            f"Unsupported checkpoint architecture={arch!r}; "
+            f"supported={list(classes)}"
+        )
+
+    saved = meta.get("config") or {}
+
+    if isinstance(saved, dict):
+        old_roi = saved.get("model", {}).get("roi_single_head", {})
+        new_roi = cfg.get("model", {}).get("roi_single_head", {})
+
+        for key in ("topk", "roi_size"):
+            if key in old_roi and key in new_roi:
+                if int(old_roi[key]) != int(new_roi[key]):
+                    raise ValueError(
+                        f"{key} mismatch: checkpoint={old_roi[key]}, "
+                        f"YAML={new_roi[key]}"
+                    )
+
+        for key in ("rgb", "tir"):
+            a = saved.get("data", {}).get(key)
+            b = cfg.get("data", {}).get(key)
+            if a and b and str(a) != str(b):
+                print(
+                    f"[DATA WARNING] {key}: "
+                    f"checkpoint={a}, YAML={b}",
+                    flush=True,
+                )
+
+    yaml_dual = bool(
+        cfg.get("model", {}).get("dual_head", {}).get("enabled", False)
+    )
+    actual_dual = issubclass(
+        classes[arch], GMLSV2DualHeadHybrid
+    )
+
+    if yaml_dual != actual_dual:
+        print(
+            f"[HEAD WARNING] YAML dual_head={yaml_dual}; "
+            f"checkpoint architecture={arch}",
+            flush=True,
+        )
+
+    del meta
+
+    net = classes[arch](cfg, verbose=True).to(device)
+
+    print(
+        f'[HEAD AUTO] {"dual" if actual_dual else "single"}'
+        f' | {arch} | strict=True',
+        flush=True,
+    )
     ckpt = _load_checkpoint(checkpoint, net)
     net.eval()
     print(f"[LOADED] {checkpoint} | epoch={ckpt.get('epoch')} | architecture={ckpt.get('architecture')}", flush=True)

@@ -1,4 +1,4 @@
-"""Unified GMLS-v2 + GeoCenter V2 + Top-2 ROI DualHead.
+"""Unified GMLS-v2 / GeoCenter V2 / GeoBox + optional GPR-MS KD.
 
-Experiments 01 and 10 only. Requires existing repository models/engine/datasets.
+Students trained on 01/10 remain loadable; only 11 requires frozen teachers.
 """

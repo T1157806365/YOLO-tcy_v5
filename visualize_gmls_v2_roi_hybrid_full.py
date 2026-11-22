@@ -184,7 +184,7 @@ def _select_indices(ds,values,index,first_n):
 def visualize_one(idx,net,ds,device,output_root,conf,iou,max_det,canvas,aux_global=False,features=True):
     from engine.runtime import preprocess_batch
     from engine.evaluator import postprocess_predictions
-    from gmls_roi_onehead_v2.multi_roi import per_image_merge,crop_box_to_semantic
+    from gmls_roi_hybrid.multi_roi import per_image_merge,crop_box_to_semantic
 
     sample=ds[idx]
     batch=preprocess_batch(ds.collate_fn([sample]),device)
@@ -418,7 +418,7 @@ def visualize_one(idx,net,ds,device,output_root,conf,iou,max_det,canvas,aux_glob
                                     conf_thres=.001,iou_thres=float(iou),max_det=int(max_det))
         bb,ss=_detection_arr(aux[0],conf)
         emit('training_only_global_aux',draw_boxes(draw_boxes(sem,rgb_sem_gt,RGB_GT,'RGB GT'),bb,PRED,'AUX',ss),
-             'TRAIN-ONLY shared-head global auxiliary detection',
+             'TRAIN-ONLY independent global detection' if hasattr(net,'global_neck_detect') else 'TRAIN-ONLY shared-head global auxiliary detection',
              'NOT executed during normal Hybrid validation/inference')
 
     tir_gt_high=_semantic_xyxy_to_high(tir_aligned_boxes_sem,sample,(hh,hw),(sh,sw))
@@ -462,7 +462,7 @@ def visualize_one(idx,net,ds,device,output_root,conf,iou,max_det,canvas,aux_glob
                     f'ROI#{j+1}: true RGB / aligned TIR source crops',canvas=canvas)
         _write_tile(folder,15,'rgb_tir_roi_blend',draw_boxes(cv2.addWeighted(rgbroi,.5,tirroi,.5,0),gt_local,RGB_GT,'RGB GT'),
                     f'ROI#{j+1}: RGB-T geometry consistency blend',canvas=canvas)
-        _write_tile(folder,3,'roi_detection_vs_gt',local_pred_img,f'ROI#{j+1}: ONE shared YOLO26m Detect',
+        _write_tile(folder,3,'roi_detection_vs_gt',local_pred_img,f'ROI#{j+1}: {"independent local" if hasattr(net,"global_neck_detect") else "shared"} YOLO26m Detect',
                     f'Local predictions conf>={conf:.3f}; num={len(pred_local)}',canvas=canvas)
         # View per-crop detections mapped back to the 640 semantic reference.
         sem_pred=crop_box_to_semantic(loc[j]['bboxes'],ex['roi'],batch,0,j)
@@ -513,7 +513,8 @@ def visualize_one(idx,net,ds,device,output_root,conf,iou,max_det,canvas,aux_glob
     guide_err_px=float(np.linalg.norm((primary-gt_main)*np.array([sw,sh]))) if gt_main is not None else None
     roi_union=any(item['gt_covered'] for item in per_roi_meta)
     meta={'index':idx,'rgb_path':sample['rgb_path'],'tir_path':sample['tir_path'],
-          'architecture':'gmls_v2_one_shared_head_global_aux_top2_officialpt_v2',
+          'architecture':str(net.architecture),
+          'head_type':'dual' if hasattr(net,'global_neck_detect') else 'single',
           'inference_used_gt_crop':False,'inference_used_global_detect':False,
           'topk':k,'image_sizes':{'rgb_high':[hh,hw],'rgb_sem':[sh,sw],'tir':list(tir.shape[:2])},
           'alignment':{'anchor_rgb':anchor.tolist() if anchor is not None else None,
@@ -549,20 +550,101 @@ def visualize_one(idx,net,ds,device,output_root,conf,iou,max_det,canvas,aux_glob
     return meta
 
 
+
+# SINGLE_DUAL_CHECKPOINT_ARCH_COMPAT_V1
+def _load_visualizer_model(cfg, weights, device):
+    """Select model by saved checkpoint architecture, NOT by YAML filename.
+
+    Unified classes preserve the old one-head key layout, so old one-head
+    checkpoints can be loaded with strict=True. No new model weights are saved.
+    Only load checkpoints created by yourself or a trusted training run.
+    """
+    from gmls_roi_hybrid.model_hybrid import GMLSV2OneHeadHybrid
+    from gmls_roi_hybrid.model import GMLSV2DualHeadHybrid, GMLSV2GeoBoxDualHead
+
+    checkpoint = torch.load(str(weights), map_location="cpu", weights_only=False)
+    if not isinstance(checkpoint, dict):
+        raise TypeError("Unsupported checkpoint: expected a training checkpoint dict")
+    architecture = checkpoint.get("architecture")
+    classes = {
+        GMLSV2OneHeadHybrid.architecture: ("single", GMLSV2OneHeadHybrid),
+        GMLSV2DualHeadHybrid.architecture: ("dual", GMLSV2DualHeadHybrid),
+        GMLSV2GeoBoxDualHead.architecture: ("geobox-dual", GMLSV2GeoBoxDualHead),
+    }
+    if architecture not in classes:
+        raise ValueError(
+            f"Unsupported checkpoint architecture={architecture!r}. "
+            f"Supported: {list(classes)}. "
+            "No model weights were modified. Do not bypass strict load checks."
+        )
+    head_type, model_cls = classes[architecture]
+    ck_cfg = checkpoint.get("config") or {}
+    if not isinstance(ck_cfg, dict):
+        ck_cfg = {}
+    current_roi = cfg.get("model", {}).get("roi_single_head", {})
+    ck_roi = ck_cfg.get("model", {}).get("roi_single_head", {})
+    k_yaml = int(current_roi.get("topk", 2))
+    k_ck = int(ck_roi.get("topk", k_yaml))
+    if k_ck != k_yaml:
+        raise ValueError(
+            f"ROI Top-K mismatch: checkpoint={k_ck} YAML={k_yaml}; "
+            "use the original Top-K config, never silently alter crop count"
+        )
+
+    # A number of historical YAMLs are named *single_head* while their later
+    # contents set dual_head.enabled=true; the checkpoint takes precedence.
+    yaml_dual = bool(cfg.get("model", {}).get("dual_head", {}).get("enabled", False))
+    ck_dual = head_type != "single"
+    if yaml_dual != ck_dual:
+        print(
+            f"[VIS WARNING] YAML dual_head.enabled={yaml_dual}, "
+            f"but checkpoint architecture={architecture!r}. "
+            "Using CHECKPOINT head type; leaving the YAML untouched.",
+            flush=True,
+        )
+
+    ck_data = ck_cfg.get("data") or {}
+    yaml_data = cfg.get("data") or {}
+    for key in ("rgb", "tir"):
+        if ck_data.get(key) and yaml_data.get(key):
+            if str(Path(ck_data[key]).expanduser()) != str(Path(yaml_data[key]).expanduser()):
+                print(
+                    f"[VIS WARNING] {key.upper()} data differs from checkpoint: "
+                    f"checkpoint={ck_data[key]} / YAML={yaml_data[key]}. "
+                    "Labels/images will follow the supplied YAML.", flush=True,
+                )
+
+    # Geometry-loss-only parameters are not learned: the GeoBox class can
+    # still perform the same inference as long as the config supplies them.
+    net = model_cls(cfg, verbose=False).to(device)
+    if net.architecture != architecture:
+        raise RuntimeError(f"Architecture mismatch {architecture!r} != {net.architecture!r}")
+    state = checkpoint.get("model_state_dict")
+    if not isinstance(state, dict) or not state:
+        raise KeyError("Checkpoint missing model_state_dict")
+    if all(name.startswith("module.") for name in state):
+        state = {name[len("module."):]: value for name, value in state.items()}
+    net.load_state_dict(state, strict=True)
+    net.eval()
+    print(
+        f"[VIS LOADED] head={head_type} architecture={architecture} "
+        f"roi_topk={k_ck} strict=True checkpoint={weights}",
+        flush=True,
+    )
+    return net, checkpoint
+
+
 def main(args):
     # Imports delayed so the module's renderer functions can be tested without ultralytics.
     from engine.runtime import load_config,select_device
     from datasets.rsdt_dataset import build_rsdt_dataset
-    from gmls_roi_onehead_v2.model import GMLSV2OneHeadHybrid
-    from gmls_roi_onehead_v2.runner import _load_checkpoint
     cfg=load_config(args.cfg)
     weights=Path(args.weights).expanduser().resolve()
     if not weights.is_file():raise FileNotFoundError(f'Missing checkpoint {weights}')
     device=select_device(args.device)
-    net=GMLSV2OneHeadHybrid(cfg,verbose=False).to(device)
-    ckpt=_load_checkpoint(weights,net,require_opt=False)
+    net,ckpt=_load_visualizer_model(cfg,weights,device)
     net.eval()
-    ck_cfg=ckpt.get('config',{})
+    ck_cfg=ckpt.get('config') or {}
     k_ck=int(ck_cfg.get('model',{}).get('roi_single_head',{}).get('topk',net.num_rois))
     if net.num_rois!=k_ck:
         raise ValueError(f'Checkpoint was trained with topk={k_ck}, YAML builds topk={net.num_rois}')
@@ -607,7 +689,7 @@ def main(args):
 
 
 if __name__=='__main__':
-    p=argparse.ArgumentParser(description='Complete visualization: GMLS-v2 Hybrid Top-K, one shared head')
+    p=argparse.ArgumentParser(description='Complete visualization: GMLS-v2 Hybrid Top-K, single/dual head auto-selected from checkpoint')
     p.add_argument('--cfg',required=True,help='Original GMLS-v2 Hybrid training YAML')
     p.add_argument('--weights',required=True,help='Trained V2 Hybrid checkpoint best.pt/last.pt')
     p.add_argument('--split',choices=('train','val','test'),default='test')

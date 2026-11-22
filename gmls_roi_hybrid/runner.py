@@ -276,6 +276,10 @@ def run_train(args):
     val_loader=None if args.smoke else build_loader(
         cfg,'val',int(tc.get('val_batch',1)),int(tc.get('val_workers',2)),rank,world)[0]
     net=GMLSV2OneHeadHybrid(cfg,verbose=rank==0).to(device)
+    if hasattr(net, 'prepare_teachers'):
+        net.prepare_teachers(device)  # load frozen teachers on each rank, outside DDP
+        if args.smoke:
+            net._kd_gradient_probe_once=True  # single GPU only, no optimizer change
     run_dir=Path(cfg['output']['project'])/cfg['output']['name']
     resumed=None
     if args.resume:
@@ -316,7 +320,7 @@ def run_train(args):
         print(f'[PRETRAINED] official YOLO26m.pt={net.official_path}',flush=True)
         (run_dir/'weights').mkdir(parents=True,exist_ok=True)
     for epoch in range(first_epoch,epochs):
-        start=time.perf_counter();net.set_epoch(epoch);model.train()
+        start=time.perf_counter();net.set_epoch(25 if (args.smoke and hasattr(net,'prepare_teachers')) else epoch);model.train()
         if sampler is not None:sampler.set_epoch(epoch)
         opt.zero_grad(set_to_none=True)
         count=0;sum_stats={};lr=float(opt.param_groups[0]['lr'])
@@ -468,6 +472,34 @@ def run_train(args):
                 print('[GEO BOX]     '+fmt('geo_final_size','geo_final_giou','geo_final_box_weighted','geo_final_box_pairs','geo_final_box_iou'),flush=True)
             else:
                 print('[GEO BOX]     disabled (01 Full baseline)',flush=True)
+            if cfg.get('distillation',{}).get('enabled',False):
+                print('[KD MULTISCALE] '+fmt('kd_weight','kd_raw','kd_weighted',
+                      'kd_rgb_valid_rate','kd_tir_valid_rate'),flush=True)
+                print('[KD RGB]        '+fmt('kd_rgb_p3','kd_rgb_p4','kd_rgb_p5','kd_rgb_quality'),flush=True)
+                print('[KD TIR]        '+fmt('kd_tir_p3','kd_tir_p4','kd_tir_p5','kd_tir_quality'),flush=True)
+            # CGD10_PER_EPOCH_LOG_V1
+            if cfg.get('geometry_distillation', {}).get('enabled', False):
+                print('[CGD-10 KD]    '+fmt('cgd_route_weight', 'cgd_warp_weight',
+                      'cgd_route_raw', 'cgd_warp_raw', 'cgd_route_weighted',
+                      'cgd_warp_weighted', 'cgd_total_weighted'),flush=True)
+                print('[CGD-10 TEACH] '+fmt('cgd_teacher_rgb_valid','cgd_teacher_tir_valid',
+                      'cgd_pair_valid','cgd_pair_quality',
+                      'cgd_teacher_pair_delta_error_px','cgd_teacher_geometry_consistency',
+                      'cgd_route_eligible',
+                      'cgd_route_teacher_agreement','cgd_route_target_dmls'),flush=True)
+                print('[CGD-10 WARP]  '+fmt('cgd_warp_center_px','cgd_warp_soft_overlap',
+                      'cgd_warp_size_loss'),flush=True)
+            # CGD10_FEATURE_GEOMETRY_V2_METRICS
+            if cfg.get('geometry_distillation', {}).get('mode') == 'feature_geometry_v2':
+                print('[CGD-10 V2 KD]   '+fmt('cgd_route_raw','cgd_offset_raw','cgd_warp_raw',
+                    'cgd_route_weighted','cgd_offset_weighted','cgd_warp_weighted','cgd_total_weighted'),flush=True)
+                print('[CGD-10 V2 FEAT] '+fmt('cgd_teacher_rgb_concentration',
+                    'cgd_teacher_tir_concentration','cgd_teacher_rgb_center_shift_px',
+                    'cgd_teacher_tir_center_shift_px','cgd_teacher_pair_delta_error_px',
+                    'cgd_pair_quality'),flush=True)
+                print('[CGD-10 V2 GEO]  '+fmt('cgd_offset_error_features','cgd_offset_valid_rate',
+                    'cgd_route_eligible','cgd_route_agreement','cgd_warp_center_px',
+                    'cgd_warp_size_loss','cgd_warp_response_overlap'),flush=True)
             print('[ROI GUIDE]   '+fmt('roi_guide','roi_center','roi_positive','roi_tir_valid','gt_assist','roi_count'),flush=True)
             if report:
                 m=report['metrics']

@@ -3,22 +3,34 @@ traincc: |
   cd /mnt/sda/taochangyong/Projects/Model/YOLO-tcy_v5
   mkdir -p logs pid
   nohup python -u train_gmls_roi_hybrid.py \
-  --cfg configs/experiments/gmls_v2_roi/unified_01_10_200e/10.yaml \
-  > logs/Hybrid_10_200e.log 2>&1 &
-  echo $! > pid/Hybrid_10_200e.pid
-  tail -f logs/Hybrid_10_200e.log
+    --cfg configs/experiments/cgd10_v2/uavcb_cgd10_feature_geometry_v2_100e.yaml \
+    > logs/UAVCB_CGD10_V2_100e.log 2>&1 &
+  echo $! > pid/UAVCB_CGD10_V2_100e.pid
+  tail -f logs/UAVCB_CGD10_V2_100e.log
 
   conda activate tcy
   cd /mnt/sda/taochangyong/Projects/Model/YOLO-tcy_v5
   python val_gmls_roi_hybrid.py \
-    --cfg configs/experiments/gmls_v2_roi/unified_01_10_200e/10.yaml \
-    --weights runs/gmls_roi_hybrid_unified_200e/10_DualHead_200e_seed0/weights/best.pt \
+    --cfg configs/experiments/cgd10_v2/uavcb_cgd10_feature_geometry_v2_100e.yaml \
+    --weights runs/cgd10/yolo26m_UAVCB_CGD10_GeoBox_100e_seed0/weights/best.pt \
     --split test \
     --device 6 \
     --batch 4 \
     --workers 4 \
     --warmup 3 \
     --plots
+
+  conda activate tcy
+  cd /mnt/sda/taochangyong/Projects/Model/YOLO-tcy_v5
+  python visualize_gmls_v2_roi_hybrid_full.py \
+    --cfg configs/experiments/gpr_mskd/uavcb_gpr_mskd_100e.yaml \
+    --weights runs/gpr_mskd/yolo26m_UAVCB_GPRMSKD_GeoBox_100e_seed0/weights/best.pt \
+    --split test \
+    --device 6 \
+    --indices 0 50 100 150 200 250 300 350 400 450 500 550 600 \
+    --conf 0.25 \
+    --iou 0.70 \
+    --canvas 1200
 model:
   variant: rlsfa_gtga_centered_bhlr_v2
   name: yolo26m
@@ -102,7 +114,7 @@ data:
   tir_imgsz: 640
   pair_mode: relative
 train:
-  device: 5,6
+  device: 4,6
   batch: 16
   batch_mode: global
   accumulate: 2
@@ -110,7 +122,7 @@ train:
   val_workers: 4
   val_interval: 1
   workers: 4
-  epochs: 200
+  epochs: 100
   optimizer: SGD
   lr0: 0.005
   lrf: 0.01
@@ -120,7 +132,7 @@ train:
   seed: 0
   deterministic: true
   grad_clip: 10.0
-  patience: 200
+  patience: 100
   early_stop_min_delta: 1.0e-06
   resume: null
   stage2:
@@ -182,5 +194,29 @@ eval:
   crop_nms_iou: 0.5
   max_det: 300
 output:
-  project: runs/gmls_roi_hybrid_unified
-  name: 10_DualHead_200e_seed0
+  project: runs/cgd10_v2
+  name: yolo26m_UAVCB_CGD10_FeatureGeometry_V2_100e_seed0
+geometry_distillation:
+  enabled: true
+  mode: feature_geometry_v2
+  rgb_teacher: runs/base/yolo26m-RGB_640_300e_bs16_seed0_new/weights/best.pt
+  tir_teacher: runs/base/yolo26m-TIR_640_300e_bs16_seed0_new/weights/best.pt
+  teacher_microbatch: 2
+  min_conf: 0.3
+  min_iou: 0.5
+  route_weight: 0.01
+  offset_weight: 0.015
+  warp_weight: 0.02
+  route_temperature: 0.65
+  route_gt_margin: 1.5
+  route_teacher_strength: 0.3
+  route_sigma_features: 4.0
+  offset_beta_features: 2.0
+  warp_center_norm_px: 16.0
+  warp_size_weight: 0.15
+  warp_overlap_weight: 0.05
+  roi_pad_cells: 3.0
+  roi_window_expand: 1.25
+  response_temperature: 0.75
+  max_teacher_center_residual_px: 10.0
+  pair_consistency_sigma_px: 24.0

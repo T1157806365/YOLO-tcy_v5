@@ -153,7 +153,21 @@ class GMLSV2GeoBoxDualHead(GMLSV2DualHeadHybrid):
             self._active_alignment_info = None
 
 def build_model(cfg, *, verbose=True):
-    """One controlled factory: 01 unchanged dual head, 10 adds GeoBox losses."""
+    """Unified 01 / 10 / 11 factory; old checkpoints stay unchanged."""
+    # CGD10_FEATURE_GEOMETRY_V2_FACTORY
+    if (cfg.get('geometry_distillation', {}).get('enabled', False)
+            and cfg.get('geometry_distillation', {}).get('mode') == 'feature_geometry_v2'):
+        from cgd10_v2.model import CGD10FeatureGeoBox
+        return CGD10FeatureGeoBox(cfg, verbose=verbose)
+    # CGD10_GEOMETRY_DISTILLATION_FACTORY
+    if bool(cfg.get('geometry_distillation', {}).get('enabled', False)):
+        if bool(cfg.get('distillation', {}).get('enabled', False)):
+            raise ValueError('CGD-10 and GPR-MS KD cannot be enabled together')
+        from cgd10.model import CGD10GeoBox
+        return CGD10GeoBox(cfg, verbose=verbose)
+    if bool(cfg.get('distillation',{}).get('enabled',False)):
+        from .kd_model import build_kd_model  # lazy import avoids cycles
+        return build_kd_model(cfg, verbose=verbose)
     flag=bool(cfg.get('model',{}).get('geo_box',{}).get('enabled',False))
     a=cfg['loss']['alignment']
     enabled=bool(a.get('enabled',False))
