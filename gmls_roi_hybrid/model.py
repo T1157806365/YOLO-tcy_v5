@@ -168,6 +168,18 @@ def build_model(cfg, *, verbose=True):
     if bool(cfg.get('distillation',{}).get('enabled',False)):
         from .kd_model import build_kd_model  # lazy import avoids cycles
         return build_kd_model(cfg, verbose=verbose)
+    # CDGR_GARF_LOCAL_FUSION_FACTORY_V1
+    if cfg.get('model',{}).get('garf_local_fusion',{}).get('enabled',False):
+        from cdgr_garf.model import CDGRGARFGeoBoxDualHead
+        return CDGRGARFGeoBoxDualHead(cfg,verbose=verbose)
+    # CDGR_LCMF_LOCAL_CORRESPONDENCE_FACTORY_V1
+    if cfg.get('model',{}).get('lcmf_local_fusion',{}).get('enabled',False):
+        from cdgr_lcmf.model import CDGRLCMFGeoBoxDualHead
+        return CDGRLCMFGeoBoxDualHead(cfg,verbose=verbose)
+    # CDGR_GEOBOX_CENTER_SCALE_FACTORY_V1
+    if cfg.get('model', {}).get('geometry_refinement', {}).get('enabled', False):
+        from cdgr_geobox.model import CDGRGeoBoxDualHead
+        return CDGRGeoBoxDualHead(cfg, verbose=verbose)
     flag=bool(cfg.get('model',{}).get('geo_box',{}).get('enabled',False))
     a=cfg['loss']['alignment']
     enabled=bool(a.get('enabled',False))

@@ -4,12 +4,12 @@ git status
 git branch --show-current 
 git remote -v 
 # 基于当前代码创建新的备份分支 
-git switch -c backup-20261121-top2-hybrid
+git switch -c backup-20261123-cdgr_geobox
 # 提交当前所有未被 .gitignore 排除的修改 
 git add . 
-git commit -m "Backup YOLO-tcy_v5 20261121-top2-hybrid" 
+git commit -m "Backup YOLO-tcy_v5 20261123-cdgr_geobox" 
 # 上传新分支到 GitHub 
-git push -u origin backup-20261121-top2-hybrid
+git push -u origin backup-20261123-cdgr_geobox
 
 
 # 重新推送

@@ -215,16 +215,42 @@ class GMLSV2OneHeadHybrid(GMLSV2ROISingleHead):
         ex=self.encode_and_crop(batch,return_debug=True,train_rois=True)
         B=int(batch['rgb_img'].shape[0]);K=ex['rois_per_image']
         labels,npositive=labels_for_crops(batch,ex['roi'],K,self.min_visible)
-        labels['rgb_img']=ex['rgb_roi'];labels['tir_img']=ex['tir_roi']
-        # Det criterion lazily initialized by the native v5 RGB-T detector.
-        local_raw,local_items=self.detector(labels)
-        local_loss=local_raw.sum()*(B/float(B*K))
-        # Restore OLD full-image supervision without creating another Detect head.
-        # One YOLO head's parameters are used twice during training.
-        if self.lambda_global > 0:
-            global_pred=self._shared_head_global_prediction(ex)
-            global_target={'img':batch['rgb_semantic_img'], 'cls':batch['rgb_cls'],
-                           'bboxes':batch['rgb_semantic_bboxes'],'batch_idx':batch['rgb_batch_idx']}
+        # EMPTYGT_ASYMMETRIC_DETECTION_MASK_V1
+        # Native Detect is supervised in RGB coordinates. When TIR has GT
+        # but RGB lacks it, this image is annotation-unknown, NOT a negative.
+        # RGB-only and both-empty pairs remain eligible for RGB detection.
+        mask_asymmetric=bool(self.cfg.get('data',{}).get('ignore_rgb_empty_tir_positive',False))
+        if mask_asymmetric:
+            from .empty_gt_adaptation import (
+                rgb_supervision_mask, select_rgb_local_labels,
+                select_global_training_data,
+            )
+            rgb_supervised=rgb_supervision_mask(batch,B)
+            local_labels=select_rgb_local_labels(
+                labels,ex['rgb_roi'],ex['tir_roi'],rgb_supervised,K)
+        else:
+            rgb_supervised=torch.ones(B,device=batch['rgb_img'].device,dtype=torch.bool)
+            local_labels=dict(labels)
+            local_labels['rgb_img']=ex['rgb_roi']
+            local_labels['tir_img']=ex['tir_roi']
+        if local_labels is not None:
+            # Det criterion lazily initialized by the native v5 RGB-T detector.
+            local_raw,local_items=self.detector(local_labels)
+            local_loss=local_raw.sum()*(B/float(B*K))
+        else:
+            # All RGB labels missing while TIR has GT. Do NOT train these as
+            # background. A graph-connected zero keeps DDP forward valid.
+            local_loss=(ex['rgb_roi'].float().sum()+ex['tir_roi'].float().sum())*0.0
+            local_items={}
+        # Independent global Neck+Detect; same RGB-labelled image subset.
+        if self.lambda_global > 0 and bool(rgb_supervised.any()):
+            if mask_asymmetric:
+                global_ex,global_target=select_global_training_data(ex,batch,rgb_supervised)
+            else:
+                global_ex=ex
+                global_target={'img':batch['rgb_semantic_img'], 'cls':batch['rgb_cls'],
+                               'bboxes':batch['rgb_semantic_bboxes'],'batch_idx':batch['rgb_batch_idx']}
+            global_pred=self._shared_head_global_prediction(global_ex)
             global_raw,global_items=self.detector.criterion(global_pred,global_target)
             global_loss=global_raw.sum()
         else:
@@ -267,7 +293,9 @@ class GMLSV2OneHeadHybrid(GMLSV2ROISingleHead):
                'roi_guide':guide_loss.detach(),'roi_center':center_loss.detach(),
                'roi_positive':float(npositive)/max(B*K,1),
                'roi_tir_valid':ex['roi'].tir_valid.mean().detach(),
-               'roi_count':float(K), 'gt_assist':ex['gt_assisted'].detach()}
+               'roi_count':float(K), 'gt_assist':ex['gt_assisted'].detach(),
+               'emptygt_rgb_supervised':float(rgb_supervised.sum()),
+               'emptygt_rgb_unknown_ignored':float((~rgb_supervised).sum())}
         parts['align_final_center']=final_center_raw.detach()
         parts['align_final_center_px']=final_center_error.detach()
         parts['align_final_center_pairs']=float(final_center_pairs)

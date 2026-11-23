@@ -816,11 +816,31 @@ class RGBTRLSFAGTGACenteredBHLRV2DetectionModel(RGBTDetectionModel):
             sigma_factor=self.gtga_gaussian_sigma_factor,
             sigma_min_px=self.gtga_gaussian_sigma_min_px,
         )
-        target_loss = (
-            self._focal_bce(rgb_logits, rgb_gaussian)
-            + self._focal_bce(tir_logits, tir_gaussian)
-            + self._focal_bce(coarse_logits, coarse_mask)
-        ) / 3.0
+        # EMPTYGT_ASYMMETRIC_TARGETNESS_MASK_V1
+        # If RGB is absent but TIR has UAV GT, absence of RGB annotation
+        # does not mean RGB is background. Vice versa for missing TIR GT.
+        if bool(self.alignment_loss_cfg.get('mask_unpaired_targetness', False)):
+            rgb_has=torch.bincount(batch['rgb_batch_idx'].long(),minlength=bsz)>0
+            tir_has=torch.bincount(batch['tir_batch_idx'].long(),minlength=bsz)>0
+            rgb_use=rgb_has | ~tir_has
+            tir_use=tir_has | ~rgb_has
+            # Coarse targetness is RGB-coordinate localized.
+            coarse_use=rgb_use
+            def masked_focal(logits,target,mask):
+                if bool(mask.any()):
+                    return self._focal_bce(logits[mask],target[mask])
+                return logits.float().sum()*0.0
+            target_loss=(
+                masked_focal(rgb_logits,rgb_gaussian,rgb_use)
+                + masked_focal(tir_logits,tir_gaussian,tir_use)
+                + masked_focal(coarse_logits,coarse_mask,coarse_use)
+            ) / 3.0
+        else:
+            target_loss = (
+                self._focal_bce(rgb_logits, rgb_gaussian)
+                + self._focal_bce(tir_logits, tir_gaussian)
+                + self._focal_bce(coarse_logits, coarse_mask)
+            ) / 3.0
 
         pred_anchor = dbg["coarse_anchor"].float()
         pred_offset = dbg["coarse_offset"].float()

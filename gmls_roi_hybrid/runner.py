@@ -500,6 +500,24 @@ def run_train(args):
                 print('[CGD-10 V2 GEO]  '+fmt('cgd_offset_error_features','cgd_offset_valid_rate',
                     'cgd_route_eligible','cgd_route_agreement','cgd_warp_center_px',
                     'cgd_warp_size_loss','cgd_warp_response_overlap'),flush=True)
+            # CDGR_GEOBOX_CENTER_SCALE_EPOCH_LOG_V1
+            if cfg.get('model',{}).get('geometry_refinement',{}).get('enabled',False):
+                print('[CDGR GEOMETRY] '+fmt('cdgr_center_shift_px',
+                    'cdgr_scale_log_residual','cdgr_scale_saturation_rate'),flush=True)
+            # CDGR_GARF_LOCAL_FUSION_LOG_V1
+            if cfg.get('model',{}).get('garf_local_fusion',{}).get('enabled',False):
+                for _s in (3,4,5):
+                    print(f'[GARF P{_s}] '+fmt(
+                        f'garf_p{_s}_gate_mean',f'garf_p{_s}_gate_std',
+                        f'garf_p{_s}_gate_low_frac',f'garf_p{_s}_gate_high_frac',
+                        f'garf_p{_s}_tir_delta_over_rgb'),flush=True)
+            # CDGR_LCMF_LOCAL_CORRESPONDENCE_LOG_V1
+            if cfg.get('model',{}).get('lcmf_local_fusion',{}).get('enabled',False):
+                for _s in (3,4,5):
+                    print(f'[LCMF P{_s}] '+fmt(
+                        f'lcmf_p{_s}_flow_px',f'lcmf_p{_s}_peak_prob',
+                        f'lcmf_p{_s}_resample_mix',f'lcmf_p{_s}_tir_resample_delta',
+                        f'lcmf_p{_s}_interaction_ratio',f'lcmf_p{_s}_effective_delta_ratio'),flush=True)
             print('[ROI GUIDE]   '+fmt('roi_guide','roi_center','roi_positive','roi_tir_valid','gt_assist','roi_count'),flush=True)
             if report:
                 m=report['metrics']

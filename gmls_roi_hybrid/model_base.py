@@ -86,11 +86,15 @@ def _guide_supervision(logits:torch.Tensor, pred:torch.Tensor, gt:torch.Tensor,
     crossentropy=(-target*logp).sum(1)
     guide=(crossentropy*validf).sum()/validf.sum().clamp_min(1)
     # 640 semantic pixel error rather than only a tiny normalized loss.
-    err=(pred-gt).square().sum(-1).sqrt()
-    center=(err*validf).sum()/validf.sum().clamp_min(1)
-    if not bool(valid.any()):
-        guide=logits.sum()*0.0
-        center=pred.sum()*0.0
+    # EMPTYGT_ASYMMETRIC_CENTER_GRAD_FIX_V1
+    # Missing RGB GT sets gt=pred.detach(), giving exactly zero distance.
+    # sqrt(0) has singular backward: even 0*invalid_mask produces NaN.
+    # Index only valid samples and use a zero-safe vector norm.
+    if bool(valid.any()):
+        center=torch.linalg.vector_norm((pred[valid]-gt[valid]).float(),dim=-1).mean()
+    else:
+        center=pred.float().sum()*0.0
+        guide=logits.float().sum()*0.0
     return guide,center
 
 

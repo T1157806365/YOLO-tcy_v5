@@ -112,7 +112,7 @@ data:
   tir_imgsz: 640
   pair_mode: relative
 train:
-  device: 4,5
+  device: 4,6
   batch: 16
   batch_mode: global
   accumulate: 2

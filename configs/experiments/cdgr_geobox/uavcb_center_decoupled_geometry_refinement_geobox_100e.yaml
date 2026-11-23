@@ -3,18 +3,18 @@ traincc: |
   cd /mnt/sda/taochangyong/Projects/Model/YOLO-tcy_v5
   mkdir -p logs pid
   nohup python -u train_gmls_roi_hybrid.py \
-    --cfg configs/experiments/cgd10_v2/uavcb_cgd10_feature_geometry_v2_100e.yaml \
-    > logs/UAVCB_CGD10_V2_100e.log 2>&1 &
-  echo $! > pid/UAVCB_CGD10_V2_100e.pid
-  tail -f logs/UAVCB_CGD10_V2_100e.log
+    --cfg configs/experiments/cdgr_geobox/uavcb_center_decoupled_geometry_refinement_geobox_100e.yaml \
+    > logs/UAVCB_CDGR_GeoBox_100e.log 2>&1 &
+  echo $! > pid/UAVCB_CDGR_GeoBox_100e.pid
+  tail -f logs/UAVCB_CDGR_GeoBox_100e.log
 
   conda activate tcy
   cd /mnt/sda/taochangyong/Projects/Model/YOLO-tcy_v5
-  python val_gmls_roi_hybrid.py \
-    --cfg configs/experiments/cgd10_v2/uavcb_cgd10_feature_geometry_v2_100e.yaml \
-    --weights runs/cgd10/yolo26m_UAVCB_CGD10_GeoBox_100e_seed0/weights/best.pt \
+  python val_cdgr_geobox.py \
+    --cfg configs/experiments/cdgr_geobox/uavcb_center_decoupled_geometry_refinement_geobox_100e.yaml \
+    --weights runs/cdgr_geobox/yolo26m_UAVCB_CenterDecoupled_GeoRefine_GeoBox_100e_seed0_RGB/weights/best.pt \
     --split test \
-    --device 6 \
+    --device 0 \
     --batch 4 \
     --workers 4 \
     --warmup 3 \
@@ -23,10 +23,10 @@ traincc: |
   conda activate tcy
   cd /mnt/sda/taochangyong/Projects/Model/YOLO-tcy_v5
   python visualize_gmls_v2_roi_hybrid_full.py \
-    --cfg configs/experiments/gpr_mskd/uavcb_gpr_mskd_100e.yaml \
-    --weights runs/gpr_mskd/yolo26m_UAVCB_GPRMSKD_GeoBox_100e_seed0/weights/best.pt \
+    --cfg configs/experiments/gmls_v2_roi/uavcb_gmls_v2_geo_center_dualhead_scratch100.yaml \
+    --weights runs/gmls_v2_roi_hybrid/yolo26m_UAVCB_GeoCenter_DualHead_GlobalAux_Top2_Scratch100_seed0_0/weights/best.pt \
     --split test \
-    --device 6 \
+    --device 0 \
     --indices 0 50 100 150 200 250 300 350 400 450 500 550 600 \
     --conf 0.25 \
     --iou 0.70 \
@@ -106,9 +106,18 @@ model:
     scope: global_neck_and_detect_only
   geo_box:
     enabled: true
+  geometry_refinement:
+    enabled: true
+    type: center_decoupled_local_crossmodal_residual
+    projection_channels: 32
+    hidden_channels: 64
+    patch_size: 11
+    patch_radius: 0.12
+    max_center_shift_semantic_px: 24.0
+    max_log_scale: 0.5
 data:
   rgb: /mnt/sda/taochangyong/Projects/Model/YOLO-tcy_v5/configs/datasets/UAV-CB-RGB.yaml
-  tir: /mnt/sda/taochangyong/Projects/Model/YOLO-tcy_v5/configs/datasets/UAV-CB-TIR.yaml
+  tir: /mnt/sda/taochangyong/Projects/Model/YOLO-tcy_v5/configs/datasets/UAV-CB-RGB.yaml
   rgb_imgsz: 1920
   rgb_semantic_imgsz: 640
   tir_imgsz: 640
@@ -194,29 +203,5 @@ eval:
   crop_nms_iou: 0.5
   max_det: 300
 output:
-  project: runs/cgd10_v2
-  name: yolo26m_UAVCB_CGD10_FeatureGeometry_V2_100e_seed0
-geometry_distillation:
-  enabled: true
-  mode: feature_geometry_v2
-  rgb_teacher: runs/base/yolo26m-RGB_640_300e_bs16_seed0_new/weights/best.pt
-  tir_teacher: runs/base/yolo26m-TIR_640_300e_bs16_seed0_new/weights/best.pt
-  teacher_microbatch: 2
-  min_conf: 0.3
-  min_iou: 0.5
-  route_weight: 0.01
-  offset_weight: 0.015
-  warp_weight: 0.02
-  route_temperature: 0.65
-  route_gt_margin: 1.5
-  route_teacher_strength: 0.3
-  route_sigma_features: 4.0
-  offset_beta_features: 2.0
-  warp_center_norm_px: 16.0
-  warp_size_weight: 0.15
-  warp_overlap_weight: 0.05
-  roi_pad_cells: 3.0
-  roi_window_expand: 1.25
-  response_temperature: 0.75
-  max_teacher_center_residual_px: 10.0
-  pair_consistency_sigma_px: 24.0
+  project: runs/cdgr_geobox
+  name: yolo26m_UAVCB_CenterDecoupled_GeoRefine_GeoBox_100e_seed0

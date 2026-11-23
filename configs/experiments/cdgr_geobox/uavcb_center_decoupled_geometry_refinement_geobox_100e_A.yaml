@@ -1,20 +1,20 @@
-traincc:
+traincc: |
   conda activate tcy
   cd /mnt/sda/taochangyong/Projects/Model/YOLO-tcy_v5
   mkdir -p logs pid
-  nohup python -u train_gmls_v2_roi_hybrid.py \
-    --cfg configs/experiments/gmls_v2_roi/uavcb_gmls_v2_roi_single_head_hybrid_officialpt_top2_100e.yaml \
-    > logs/GMLSv2_OneHeadHybrid_Top2_100e_1.log 2>&1 &
-  echo $! > pid/GMLSv2_OneHeadHybrid_Top2_100e_1.pid
-  tail -f logs/GMLSv2_OneHeadHybrid_Top2_100e_1.log
+  nohup python -u train_gmls_roi_hybrid.py \
+    --cfg configs/experiments/cdgr_geobox/uavcb_center_decoupled_geometry_refinement_geobox_100e.yaml \
+    > logs/UAVCB_CDGR_GeoBox_100e_A.log 2>&1 &
+  echo $! > pid/UAVCB_CDGR_GeoBox_100e_A.pid
+  tail -f logs/UAVCB_CDGR_GeoBox_100e_A.log
 
   conda activate tcy
   cd /mnt/sda/taochangyong/Projects/Model/YOLO-tcy_v5
-  python val_gmls_v2_roi_hybrid.py \
-    --cfg configs/experiments/gmls_v2_roi/uavcb_gmls_v2_roi_single_head_hybrid_officialpt_top2_100e.yaml \
-    --weights runs/gmls_v2_roi_hybrid/yolo26m_UAVCB_GMLSv2_SingleHead_GlobalAux_Top2_OfficialPT_100e_seed0_1/weights/best.pt \
+  python val_cdgr_geobox.py \
+    --cfg configs/experiments/cdgr_geobox/uavcb_center_decoupled_geometry_refinement_geobox_100e.yaml \
+    --weights runs/cdgr_geobox/yolo26m_UAVCB_CenterDecoupled_GeoRefine_GeoBox_100e_seed0/weights/best.pt \
     --split test \
-    --device 1 \
+    --device 6 \
     --batch 4 \
     --workers 4 \
     --warmup 3 \
@@ -23,10 +23,10 @@ traincc:
   conda activate tcy
   cd /mnt/sda/taochangyong/Projects/Model/YOLO-tcy_v5
   python visualize_gmls_v2_roi_hybrid_full.py \
-    --cfg configs/experiments/gmls_v2_roi/uavcb_gmls_v2_roi_single_head_hybrid_officialpt_top2_100e.yaml \
-    --weights runs/gmls_v2_roi_hybrid/yolo26m_UAVCB_GMLSv2_SingleHead_GlobalAux_Top2_OfficialPT_100e_seed0_1/weights/best.pt \
+    --cfg configs/experiments/gmls_v2_roi/uavcb_gmls_v2_geo_center_dualhead_scratch100.yaml \
+    --weights runs/gmls_v2_roi_hybrid/yolo26m_UAVCB_GeoCenter_DualHead_GlobalAux_Top2_Scratch100_seed0_0/weights/best.pt \
     --split test \
-    --device 6 \
+    --device 0 \
     --indices 0 50 100 150 200 250 300 350 400 450 500 550 600 \
     --conf 0.25 \
     --iou 0.70 \
@@ -97,11 +97,24 @@ model:
     geometry_grad_scale: 0.1
     min_gt_visible: 0.6
     topk: 2
-    # TOP2_DIVERSE_INTEGRATED_V1: enable the Val-tested GT-free inference rule.
-    top2_diverse_enabled: true
     p3_channels: 512
     min_roi_separation: 0.1
     aux_bn_eval: true
+    top2_diverse_enabled: true
+  dual_head:
+    enabled: true
+    scope: global_neck_and_detect_only
+  geo_box:
+    enabled: true
+  geometry_refinement:
+    enabled: true
+    type: center_decoupled_local_crossmodal_residual
+    projection_channels: 32
+    hidden_channels: 64
+    patch_size: 11
+    patch_radius: 0.12
+    max_center_shift_semantic_px: 24.0
+    max_log_scale: 0.5
 data:
   rgb: /mnt/sda/taochangyong/Projects/Model/YOLO-tcy_v5/configs/datasets/UAV-CB-RGB.yaml
   tir: /mnt/sda/taochangyong/Projects/Model/YOLO-tcy_v5/configs/datasets/UAV-CB-TIR.yaml
@@ -110,7 +123,7 @@ data:
   tir_imgsz: 640
   pair_mode: relative
 train:
-  device: 5,6
+  device: 4,6
   batch: 16
   batch_mode: global
   accumulate: 2
@@ -145,8 +158,24 @@ train:
   gt_second_prob_start: 0.8
   gt_second_epochs: 35
 augment:
+  # 几何增强：RGB/TIR 同步
   fliplr: 0.5
   flipud: 0.0
+  # RGB 光学增强
+  rgb_photo_p: 0.85
+  rgb_brightness: 0.12
+  rgb_contrast: 0.18
+  rgb_gamma: 0.15
+  rgb_blur_p: 0.10
+  rgb_noise_p: 0.10
+  rgb_noise_std: 0.008
+  # TIR 热红外增强
+  tir_photo_p: 0.75
+  tir_contrast: 0.18
+  tir_gamma: 0.16
+  tir_blur_p: 0.08
+  tir_noise_p: 0.15
+  tir_noise_std: 0.012
 loss:
   box: 7.5
   cls: 0.5
@@ -169,6 +198,14 @@ loss:
     v2_quality_iou_weight: 0.8
     v2_quality_advantage: 0.05
     v2_route_target_temperature: 0.05
+    lambda_final_center: 0.25
+    final_center_norm_px: 8.0
+    final_center_beta: 0.5
+    final_center_warmup_epochs: 10
+    lambda_final_size: 0.05
+    lambda_final_giou: 0.1
+    final_size_beta: 0.2
+    final_box_warmup_epochs: 10
   roi:
     lambda_local: 1.0
     lambda_guide: 0.2
@@ -182,5 +219,5 @@ eval:
   crop_nms_iou: 0.5
   max_det: 300
 output:
-  project: runs/gmls_v2_roi_hybrid
-  name: yolo26m_UAVCB_GMLSv2_SingleHead_GlobalAux_Top2_OfficialPT_100e_seed0_1
+  project: runs/cdgr_geobox
+  name: yolo26m_UAVCB_CenterDecoupled_GeoRefine_GeoBox_100e_seed0_A
