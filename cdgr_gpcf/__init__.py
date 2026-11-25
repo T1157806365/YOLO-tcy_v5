@@ -1,0 +1,1 @@
+"""CDGR-GPCF independent extension."""

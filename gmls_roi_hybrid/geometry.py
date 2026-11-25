@@ -50,7 +50,7 @@ def sample_roi_pair(rgb_high: torch.Tensor, tir_full: torch.Tensor,
                     trans: torch.Tensor, high_metas: list[Mapping],
                     sem_metas: list[Mapping], sem_hw: tuple[int, int],
                     size: int = 640, geometry_grad_scale: float = 0.1,
-                    center_grad_scale: float = 0.1):
+                    center_grad_scale: float = 0.1, tir_size: int | None = None):
     """Vectorized differentiable sampling with grid_sample(align_corners=True).
 
     RGB high B,3,H,W and TIR B,3,h,w are normalized to [0,1].
@@ -87,7 +87,20 @@ def sample_roi_pair(rgb_high: torch.Tensor, tir_full: torch.Tensor,
     rs = rs[:,None]
     ph = ph[:,None,None,:]
     ps = ps[:,None,None,:]
-    xy_sem = (xy_high - ph) / rh.unsqueeze(-1) * rs.unsqueeze(-1) + ps
+    # CDGR_SMF_ASYMMETRIC_SAMPLING_V1
+    # Same continuous ROI support, independently sampled on an origin-aligned grid.
+    # At 640/320, TIR stride 4 occupies precisely the RGB stride-8 grid.
+    # No resizing of a 640x640 TIR crop; direct sampling from tir_full.
+    if tir_size is not None and int(tir_size) != size:
+        ts = int(tir_size)
+        if ts < 32 or ts > size or ts % 32:
+            raise ValueError(f'Invalid local TIR size={ts}')
+        tv = torch.arange(ts,device=rgb_high.device,dtype=torch.float32) * (size/ts)
+        ty,tx = torch.meshgrid(tv,tv,indexing='ij')
+        xy_tir_high = torch.stack((tx,ty),-1)[None] + xy0[:,None,None,:]
+    else:
+        xy_tir_high = xy_high
+    xy_sem = (xy_tir_high - ph) / rh.unsqueeze(-1) * rs.unsqueeze(-1) + ps
     hs, ws = sem_hw
     p = xy_sem / xy_sem.new_tensor([max(ws-1,1),max(hs-1,1)])
     q = p * ss[:, None, None, :] + tt[:, None, None, :]

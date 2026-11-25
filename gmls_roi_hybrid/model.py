@@ -154,6 +154,30 @@ class GMLSV2GeoBoxDualHead(GMLSV2DualHeadHybrid):
 
 def build_model(cfg, *, verbose=True):
     """Unified 01 / 10 / 11 factory; old checkpoints stay unchanged."""
+    # CDGR_JCE_FACTORY_V1
+    if cfg.get('model',{}).get('jce',{}).get('enabled',False):
+        from cdgr_jce.model import CDGRJCE
+        return CDGRJCE(cfg,verbose=verbose)
+    # CDGR_GPCF_FACTORY_V1
+    if cfg.get('model',{}).get('gpcf',{}).get('enabled',False):
+        from cdgr_gpcf.model import CDGRGPCF
+        return CDGRGPCF(cfg,verbose=verbose)
+    # CDGR_SW_DSBN_FACTORY_V1
+    if cfg.get('model',{}).get('shared_dsbn',{}).get('enabled',False):
+        from cdgr_sw.model import CDGRSharedDSBN
+        return CDGRSharedDSBN(cfg,verbose=verbose)
+    # CDGR_MCF_FACTORY_V1
+    if cfg.get('model',{}).get('mcf',{}).get('enabled',False):
+        from cdgr_mcf.model import CDGRMCF
+        return CDGRMCF(cfg,verbose=verbose)
+    # CDGR_SMF_FACTORY_V1
+    if cfg.get('model',{}).get('scale_matched_fusion',{}).get('enabled',False):
+        from cdgr_smf.model import CDGRScaleMatched
+        return CDGRScaleMatched(cfg,verbose=verbose)
+    # CDGR_THRF_V2_PHASE_PRESERVING_FACTORY
+    if cfg.get('model', {}).get('thrf_v2', {}).get('enabled', False):
+        from cdgr_thrf_v2.model import CDGRTHRFV2
+        return CDGRTHRFV2(cfg, verbose=verbose)
     # CGD10_FEATURE_GEOMETRY_V2_FACTORY
     if (cfg.get('geometry_distillation', {}).get('enabled', False)
             and cfg.get('geometry_distillation', {}).get('mode') == 'feature_geometry_v2'):
@@ -172,6 +196,10 @@ def build_model(cfg, *, verbose=True):
     if cfg.get('model',{}).get('garf_local_fusion',{}).get('enabled',False):
         from cdgr_garf.model import CDGRGARFGeoBoxDualHead
         return CDGRGARFGeoBoxDualHead(cfg,verbose=verbose)
+    # CDGR_THRF_P2_THREE_STREAM_FACTORY_V1
+    if cfg.get('model', {}).get('tir_guided_hr_fusion', {}).get('enabled', False):
+        from cdgr_thrf.model import CDGRTIRGuidedHRGeoBox
+        return CDGRTIRGuidedHRGeoBox(cfg, verbose=verbose)
     # CDGR_LCMF_LOCAL_CORRESPONDENCE_FACTORY_V1
     if cfg.get('model',{}).get('lcmf_local_fusion',{}).get('enabled',False):
         from cdgr_lcmf.model import CDGRLCMFGeoBoxDualHead

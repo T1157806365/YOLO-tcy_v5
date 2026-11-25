@@ -42,6 +42,7 @@ class RSDTPairedDataset(RGBTPairedDataset):
         scaleup: Optional[bool] = None,
         strict_pair: bool = True,
         strict_label: bool = True,
+        photo_cfg: Optional[dict] = None,
     ):
         super().__init__(
             rgb_yaml=rgb_yaml,
@@ -59,6 +60,7 @@ class RSDTPairedDataset(RGBTPairedDataset):
             strict_label=strict_label,
         )
 
+        self.photo_cfg = dict(photo_cfg or {})  # ANTI_UAV_PHOTO_AUG_V1
         self.rgb_high_imgsz = _parse_imgsz(rgb_high_imgsz)
         self.rgb_semantic_imgsz = _parse_imgsz(rgb_semantic_imgsz)
         self.rgb_imgsz = self.rgb_high_imgsz
@@ -71,6 +73,12 @@ class RSDTPairedDataset(RGBTPairedDataset):
 
         rgb_original = self._read_rgb(sample["rgb_path"])
         tir = self._read_tir(sample["tir_path"])
+
+        # ANTI_UAV_PHOTO_AUG_V1: one RGB photometric transform for BOTH high and semantic.
+        # TIR is augmented independently; geometry and GT labels are untouched.
+        if self.augment and self.photo_cfg:
+            from datasets.rsdt_photometric_augment import augment_rgb_tir
+            rgb_original, tir = augment_rgb_tir(rgb_original, tir, self.photo_cfg)
 
         rgb_ori_shape = rgb_original.shape[:2]
         tir_ori_shape = tir.shape[:2]
@@ -255,6 +263,7 @@ def build_rsdt_dataset(
     flipud=0.0,
     tir_channels=3,
     strict_pair=True,
+    photo_cfg=None,
 ):
     return RSDTPairedDataset(
         rgb_yaml=rgb_yaml,
@@ -267,6 +276,7 @@ def build_rsdt_dataset(
         augment=augment,
         fliplr=fliplr,
         flipud=flipud,
+        photo_cfg=photo_cfg,
         tir_channels=tir_channels,
         strict_pair=strict_pair,
     )

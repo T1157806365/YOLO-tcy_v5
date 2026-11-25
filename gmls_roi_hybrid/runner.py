@@ -31,7 +31,8 @@ def build_loader(cfg,split,batch,workers,rank=0,world=1):
         tir_imgsz=int(dc.get('tir_imgsz',640)),
         pair_mode=str(dc.get('pair_mode','relative')),
         augment=(split=='train'),fliplr=float(aug.get('fliplr',.5)),
-        flipud=float(aug.get('flipud',0)),tir_channels=3,strict_pair=True)
+        flipud=float(aug.get('flipud',0)),photo_cfg=aug,  # ANTI_UAV_PHOTO_AUG_V1
+        tir_channels=3,strict_pair=True)
     sampler=None
     if world>1 and split=='train':
         sampler=DistributedSampler(dataset,world,rank,shuffle=True,
@@ -132,6 +133,12 @@ def evaluate(net,loader,device,cfg,*,rank=0,world=1,smoke=False,preview_dir=None
     net.eval();ecfg=cfg.get('eval',{}); conf=float(ecfg.get('conf',.001));iou=float(ecfg.get('iou',.7))
     amp=bool(cfg['train'].get('amp',True)) and device.type=='cuda'
     iouv=torch.linspace(.5,.95,10,device=device)
+    # CDGR_MCF_MONITOR_V1
+    mcf_state=None
+    mcf_cfg=cfg.get('model',{}).get('mcf',{})
+    if mcf_cfg.get('enabled') and mcf_cfg.get('monitor_mono_val',True) and {'rgb','tir'}.issubset(getattr(net,'mono_heads',{})):
+        from cdgr_mcf.monitor import create_state,update,summarize
+        mcf_state=create_state()
     records=[];hit=total=0;valid=0.;roi_count=0
     align_iou_sum=align_center_sum=align_num=0.
     guide_err_sum=0.;guide_err_num=0
@@ -141,7 +148,12 @@ def evaluate(net,loader,device,cfg,*,rank=0,world=1,smoke=False,preview_dir=None
     for batch in pbar:
         batch=preprocess_batch(batch,device)
         with autocast_context(device,amp):
-            preds,ex=net.predict(batch,conf=conf,iou=iou)
+            if mcf_state is not None:
+                preds,ex=net.predict(batch,conf=conf,iou=iou,return_mono=True)
+            else:
+                preds,ex=net.predict(batch,conf=conf,iou=iou)
+        if mcf_state is not None:
+            update(mcf_state,batch,preds,ex,iouv,float(mcf_cfg.get('recovery_conf',.25)))
         h,n=roi_coverage_union(batch,ex['roi'],ex['rois_per_image'],min_visible=float(cfg['model']['roi_single_head'].get('min_gt_visible',.6)))
         hit+=h;total+=n
         b=len(preds)
@@ -196,6 +208,7 @@ def evaluate(net,loader,device,cfg,*,rank=0,world=1,smoke=False,preview_dir=None
     state={'records':records,'hit':hit,'total':total,'valid':valid,'rois':roi_count,
            'align_iou':align_iou_sum,'align_center':align_center_sum,'align_num':align_num,
            'center_error':guide_err_sum,'center_num':guide_err_num}
+    state['mcf_monitor']=mcf_state
     if world>1:
         gathered=[None for _ in range(world)]
         dist.all_gather_object(gathered,state)
@@ -219,15 +232,24 @@ def evaluate(net,loader,device,cfg,*,rank=0,world=1,smoke=False,preview_dir=None
             'align_iou':summed['align_iou']/max(summed['align_num'],1),
             'align_center_error_sem_px':summed['align_center']/max(summed['align_num'],1),
             'seconds':time.perf_counter()-val_t0,'metrics':_metric_row(metric)}
+    if mcf_state is not None:
+        result.update(summarize([item.get('mcf_monitor') for item in gathered],_metric_row))
     return result
 
 
 def _checkpoint(path,net,opt,sched,scaler,epoch,best,best_epoch,cfg):
+    # CDGR_SW_COMPACT_CHECKPOINT_V1
+    if cfg.get('model',{}).get('shared_dsbn',{}).get('enabled',False):
+        from cdgr_sw.sharing import compact_cpu_state_dict
+        net._test_head_separation()
+        model_state=compact_cpu_state_dict(net)
+    else:
+        model_state={k:v.detach().cpu().clone() for k,v in net.state_dict().items()}
     path=Path(path);path.parent.mkdir(parents=True,exist_ok=True)
     tmp=path.with_suffix('.pt.tmp')
     torch.save({
         'architecture':net.architecture,
-        'model_state_dict':{k:v.detach().cpu().clone() for k,v in net.state_dict().items()},
+        'model_state_dict':model_state,
         'optimizer_state_dict':opt.state_dict(),
         'scheduler_state_dict':sched.state_dict(),
         'scaler_state_dict':scaler.state_dict(),
@@ -464,7 +486,7 @@ def run_train(args):
                   f'[EPOCH {epoch+1:03d}/{epochs}] LR={lr:.7g} train={train_seconds:.1f}s CPU',flush=True)
             def fmt(*keys):return ' '.join(f'{key}={stats.get(key,float("nan")):.5f}' for key in keys)
             print('[TRAIN LOCAL] '+fmt('local_det','local_box','local_cls','local_dfl'),flush=True)
-            print('[TRAIN GLOBAL AUX (SEPARATE HEAD)] '+fmt('global_aux_det','global_aux_weighted','global_aux_box','global_aux_cls','global_aux_dfl'),flush=True)
+            print(('[TRAIN GLOBAL AUX (SHARED WEIGHTS, DSBN)] ' if cfg.get('model',{}).get('shared_dsbn',{}).get('head',False) else '[TRAIN GLOBAL AUX (SEPARATE HEAD)] ')+fmt('global_aux_det','global_aux_weighted','global_aux_box','global_aux_cls','global_aux_dfl'),flush=True)
             print('[TRAIN ALIGN] '+fmt('align_weighted','align_anchor','align_coarse','align_scale','align_targetness'),flush=True)
             print('[GMLS-v2]     '+fmt('align_v2_quality','align_v2_route','align_gmls_gt_quality','align_dmls_gt_quality'),flush=True)
             print('[GEO CENTER]  '+fmt('align_final_center','align_final_center_px','align_final_center_pairs','align_final_center_ramp'),flush=True)
@@ -518,6 +540,52 @@ def run_train(args):
                         f'lcmf_p{_s}_flow_px',f'lcmf_p{_s}_peak_prob',
                         f'lcmf_p{_s}_resample_mix',f'lcmf_p{_s}_tir_resample_delta',
                         f'lcmf_p{_s}_interaction_ratio',f'lcmf_p{_s}_effective_delta_ratio'),flush=True)
+            # CDGR_THRF_P2_THREE_STREAM_LOG_V1
+            if cfg.get('model',{}).get('tir_guided_hr_fusion',{}).get('enabled',False):
+                print('[THRF AUX TIR] '+fmt('thrf_tir_target_loss','thrf_tir_target_weighted','thrf_tir_heat_supervised_roi_frac'),flush=True)
+                for _s in ('p3','p4','p5'):
+                    print(f'[THRF {_s.upper()}] '+fmt(
+                        f'thrf_{_s}_correction_over_add',f'thrf_{_s}_rgb_feature_abs',
+                        f'thrf_{_s}_tir_feature_abs',f'thrf_{_s}_detail_feature_abs'),flush=True)
+                print('[THRF P2 QUERY] '+fmt('thrf_p3_attention_max','thrf_p3_attention_entropy',
+                      'thrf_p3_tir_heat_probability','thrf_p3_detail_abs'),flush=True)
+            # CDGR_THRF_V2_PHASE_PRESERVING_LOG
+            if cfg.get('model',{}).get('thrf_v2',{}).get('enabled',False):
+                print('[THRF-V2 QUERY] '+fmt('thrf2_neighbor_entropy','thrf2_neighbor_peak','thrf2_center_attention','thrf2_phase_peak','thrf2_detail_abs'),flush=True)
+                print('[THRF-V2 FUSION] '+fmt('thrf2_delta_over_add','thrf2_rgb_abs','thrf2_tir_abs'),flush=True)
+                print('[THRF-V2 TIR] '+fmt('thrf2_tir_heat_loss','thrf2_tir_heat_weighted','thrf2_tir_heat_mean','thrf2_tir_supervised_roi_frac','thrf2_tir_positive_rois'),flush=True)
+            # CDGR_SMF_STATS_V1
+            if cfg.get('model',{}).get('scale_matched_fusion',{}).get('enabled',False):
+                print('[SMF TIR/RGB] '+fmt('smf_p3_tir_over_rgb','smf_p4_tir_over_rgb','smf_p5_tir_over_rgb'),flush=True)
+                print('[SMF GRID] '+fmt('smf_p3_tir_grid_ratio','smf_p4_tir_grid_ratio','smf_p5_tir_grid_ratio'),flush=True)
+                print('[SMF SOURCE] '+fmt('smf_source_span_x','smf_source_span_y','smf_source_above_local_frac'),flush=True)
+            if cfg.get('model',{}).get('mcf',{}).get('enabled'):
+                mc=cfg['model']['mcf']
+                for mode in ('rgb','tir'):
+                    if mc.get('lambda_'+mode,0)>0:
+                        print('[MCF MONO '+mode.upper()+'] '+fmt('mcf_'+mode+'_mono','mcf_'+mode+'_weighted','mcf_'+mode+'_valid_frac','mcf_'+mode+'_positive_boxes','mcf_'+mode+'_extra_rois'),flush=True)
+                if mc.get('fusion_enabled'):
+                    for idx in mc['fusion_indices']:
+                        pp='mcf_p'+str({4:3,6:4,10:5}[idx])+'_'
+                        print('[MCF FUSION '+pp+'] '+fmt(*(pp+k for k in ('t_to_r_over_add','r_to_t_over_add','delta_over_add','gate_t_to_r','gate_r_to_t','attn_t_to_r_peak','attn_r_to_t_peak'))),flush=True)
+                if mc.get('rgb_perturb_p',0)>0:print('[MCF RGB PERTURB] '+fmt('mcf_rgb_perturb_frac'),flush=True)
+                if report and 'mcf_rgb_AP50:95' in report:
+                    print('[MCF VAL SHARED ROI PAIRED RGB GT] '+str({k:v for k,v in report.items() if k.startswith('mcf_')}),flush=True)
+            # CDGR_GPCF_MONITOR_V1
+            gc=cfg.get('model',{}).get('gpcf',{})
+            if gc.get('enabled'):
+                for idx in gc['indices']:
+                    pp='gpcf_p'+str({4:3,6:4}[idx])+'_'
+                    print('[GPCF '+pp+'] '+fmt(*(pp+k for k in ('t_to_r_ratio','r_to_t_ratio','geo_weight','gate_t_to_r','gate_r_to_t'))),flush=True)
+            # CDGR_JCE_MONITOR_V1
+            gc=cfg.get('model',{}).get('jce',{})
+            if gc.get('enabled'):
+                for scale in (3,4,5):
+                    pp='jce_p'+str(scale)+'_'
+                    print('[JCE '+pp+'] '+fmt(*(pp+k for k in ('delta_over_add','rgb_weight','tir_weight','interaction_weight','fused_abs'))),flush=True)
+                    if {3:4,4:6,5:10}[scale] in gc['feedback_indices']:
+                        print('[JCE FEEDBACK '+pp+'] '+fmt(*(pp+k for k in ('t_to_r_ratio','r_to_t_ratio'))),flush=True)
+                print('[JCE ROBUST] '+fmt('jce_robust_raw','jce_robust_weighted','jce_robust_frac','jce_robust_rois'),flush=True)
             print('[ROI GUIDE]   '+fmt('roi_guide','roi_center','roi_positive','roi_tir_valid','gt_assist','roi_count'),flush=True)
             if report:
                 m=report['metrics']

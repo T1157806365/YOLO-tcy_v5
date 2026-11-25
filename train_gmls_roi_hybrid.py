@@ -10,8 +10,6 @@ def main():
     p.add_argument('--resume',default=None)
     p.add_argument('--smoke',action='store_true')
     args=p.parse_args()
-    if args.resume:
-        raise SystemExit('This run requires scratch training: do not use --resume')
     if not args.smoke:
         from gmls_roi_hybrid.launch import auto_launch
         auto_launch(args,Path(__file__).resolve())

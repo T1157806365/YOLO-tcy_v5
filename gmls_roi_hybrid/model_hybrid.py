@@ -171,6 +171,7 @@ class GMLSV2OneHeadHybrid(GMLSV2ROISingleHead):
             high_metas,sem_metas,batch['rgb_semantic_img'].shape[-2:],size=self.roi_size,
             center_grad_scale=self.center_grad_scale if train_rois else 0.,
             geometry_grad_scale=self.geometry_grad_scale if train_rois else 0.,
+            tir_size=getattr(self,'local_tir_roi_size',None),  # CDGR_SMF_LOCAL_TIR_SIZE_V1
         )
         return {'rgb_roi':crops_rgb,'tir_roi':crops_tir,'roi':geometry,
                 'guide_logits':logits,'guide_map':guide_map,'center_pred':primary,
